@@ -74,7 +74,7 @@ Generate a Kanban diagram with columns 'To Do' (id: c1), 'Doing' (id: c2), 'Code
 ```
 
 Answer
-```mermaid
+```
 kanban c1[To Do]
 
 c2[Doing] bug123[Fix Bug #123]
@@ -91,7 +91,7 @@ Rendered
 Draw a Gantt diagram titled "Research Paper Timeline" with dateFormat YYYY-MM-DD, excluding weekends. Section "Research": "Literature Review" (ID: litRev) 2024-03-04, 4w. "Experiment Design" (ID: expDes) after litRev, 2w. "Data Collection" (ID: dataColl) active, after expDes, 6w. Section "Writing": "Draft Manuscript" (ID: draft) after dataColl, 4w. "Internal Review" (ID: intRev) after draft, 1w. Section "Submission": "Revisions" (ID: rev) after intRev, 2w. "Submission" (ID: submit) milestone, after rev, 0d.
 ```
 Answer
-```mermaid
+```
 gantt
  title Research Paper Timeline
  dateFormat YYYY-MM-DD
