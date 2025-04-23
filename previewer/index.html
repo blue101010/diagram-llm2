@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Mermaid Diagrams Viewer</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .card {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+      }
+      .card h3 {
+        margin-top: 0;
+      }
+      .pagination {
+        margin: 20px 0;
+      }
+      .pagination button {
+        padding: 5px 10px;
+        margin-right: 10px;
+        cursor: pointer;
+      }
+      button.toggle-raw {
+        margin-top: 10px;
+        padding: 5px 8px;
+        cursor: pointer;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 10px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Mermaid Diagrams Viewer</h1>
+
+    <!-- Container for the cards -->
+    <div id="content"></div>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+      <button id="prevPage">Previous</button>
+      <span id="pageInfo"></span>
+      <button id="nextPage">Next</button>
+    </div>
+
+    <!-- Use a module script to load mermaid with zenuml and run our app code -->
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      import zenuml from "https://cdn.jsdelivr.net/npm/@mermaid-js/mermaid-zenuml@0.1.0/dist/mermaid-zenuml.esm.min.mjs";
+      await mermaid.registerExternalDiagrams([zenuml]);
+
+      // Initialize Mermaid; disable auto start to trigger manually.
+      mermaid.initialize({ startOnLoad: false });
+
+      // Configurations for pagination:
+      const itemsPerPage = 20; // adjust as needed
+      let currentPage = 1;
+      let items = []; // Will hold our JSON data
+
+      // Load dataset.json using fetch
+      fetch("dataset.json")
+        .then((response) => response.json())
+        .then((data) => {
+          items = data;
+          renderPage();
+        })
+        .catch((error) => console.error("Error loading dataset.json:", error));
+
+      // Function to render the current page
+      function renderPage() {
+        const content = document.getElementById("content");
+        content.innerHTML = ""; // Clear previous content
+
+        // Determine the slice of items for this page
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageItems = items.slice(startIndex, endIndex);
+
+        // Loop through items and create cards for each
+        pageItems.forEach((item) => {
+          // Create a card container
+          const card = document.createElement("div");
+          card.className = "card";
+
+          // Add the prompt
+          const promptHeading = document.createElement("h3");
+          promptHeading.textContent = "Prompt";
+          card.appendChild(promptHeading);
+
+          const promptPara = document.createElement("p");
+          promptPara.textContent = item.prompt;
+          card.appendChild(promptPara);
+
+          // Add the rendered diagram (using Mermaid with zenuml)
+          const diagramHeading = document.createElement("h3");
+          diagramHeading.textContent = "Diagram";
+          card.appendChild(diagramHeading);
+
+          // The mermaid diagram container. Its inner text is the raw mermaid code.
+          const diagramContainer = document.createElement("div");
+          diagramContainer.className = "mermaid";
+          diagramContainer.textContent = item.output;
+          card.appendChild(diagramContainer);
+
+          // Add toggle button for raw mermaid code
+          const toggleButton = document.createElement("button");
+          toggleButton.className = "toggle-raw";
+          toggleButton.textContent = "Show Raw Mermaid Code";
+          card.appendChild(toggleButton);
+
+          // Add the raw mermaid code container (hidden by default)
+          const rawContainer = document.createElement("pre");
+          rawContainer.style.display = "none";
+          rawContainer.textContent = item.output;
+          card.appendChild(rawContainer);
+
+          // Toggle functionality to show/hide the raw code
+          toggleButton.addEventListener("click", () => {
+            if (rawContainer.style.display === "none") {
+              rawContainer.style.display = "block";
+              toggleButton.textContent = "Hide Raw Mermaid Code";
+            } else {
+              rawContainer.style.display = "none";
+              toggleButton.textContent = "Show Raw Mermaid Code";
+            }
+          });
+
+          content.appendChild(card);
+        });
+
+        // Update pagination info
+        const totalPages = Math.ceil(items.length / itemsPerPage);
+        document.getElementById(
+          "pageInfo"
+        ).textContent = `Page ${currentPage} of ${totalPages}`;
+
+        // Trigger Mermaid to render the diagrams, including zenuml diagrams
+        mermaid.init(undefined, document.querySelectorAll(".mermaid"));
+      }
+
+      // Event listeners for pagination buttons
+      document.getElementById("prevPage").addEventListener("click", () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderPage();
+        }
+      });
+
+      document.getElementById("nextPage").addEventListener("click", () => {
+        const totalPages = Math.ceil(items.length / itemsPerPage);
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderPage();
+        }
+      });
+    </script>
+  </body>
+</html>

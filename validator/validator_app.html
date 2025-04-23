@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimized Mermaid Diagram Processor</title>
+    <!-- MERMAID SCRIPT REMOVED FROM HERE - It will be loaded via ES Module below -->
+    
+    <style>
+        /* --- CSS Styles remain the same as your original processor code --- */
+        /* --- (Styles omitted for brevity) --- */
+        :root {
+            --primary: #3498db;
+            --primary-dark: #2980b9;
+            --success: #2ecc71;
+            --success-dark: #27ae60;
+            --warning: #f39c12;
+            --warning-dark: #e67e22;
+            --danger: #e74c3c;
+            --danger-dark: #c0392b;
+            --neutral: #95a5a6;
+            --neutral-dark: #7f8c8d;
+            --dark: #34495e;
+            --darker: #2c3e50;
+            --light: #ecf0f1;
+            --lighter: #f9f9f9;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: var(--darker);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--light);
+        }
+        
+        h1, h2, h3 {
+            color: var(--darker);
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            border-radius: 8px;
+            padding: 24px;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .card-header h2 {
+            margin: 0;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            font-family: monospace;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        button:disabled {
+            background-color: var(--neutral);
+            cursor: not-allowed;
+        }
+        
+        .btn-success {
+            background-color: var(--success);
+        }
+        
+        .btn-success:hover {
+            background-color: var(--success-dark);
+        }
+        
+        .btn-warning {
+            background-color: var(--warning);
+        }
+        
+        .btn-warning:hover {
+            background-color: var(--warning-dark);
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+        }
+        
+        .btn-danger:hover {
+            background-color: var(--danger-dark);
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.2s;
+            border-radius: 4px;
+        }
+        
+        .progress-details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--neutral-dark);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 8px 0;
+        }
+        
+        .stat-title {
+            font-size: 0.9em;
+            color: var(--neutral-dark);
+            margin: 0;
+        }
+        
+        .file-dropzone {
+            border: 2px dashed var(--neutral);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            margin: 16px 0;
+            background-color: var(--lighter);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .file-dropzone:hover {
+            border-color: var(--primary);
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+        
+        .file-dropzone.highlight {
+            border-color: var(--primary);
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 0;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            background-color: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--neutral-dark);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .tab:hover {
+            color: var(--primary);
+        }
+        
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .log-container {
+            background-color: #2d3436;
+            color: #dfe6e9;
+            font-family: monospace;
+            padding: 16px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+        
+        .log-entry {
+            margin: 4px 0;
+            padding: 4px 0;
+            border-bottom: 1px solid #636e72;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-entry .timestamp {
+            color: #00cec9;
+            margin-right: 8px;
+        }
+        
+        .log-entry .status {
+            display: inline-block;
+            width: 20px;
+            text-align: center;
+            margin-right: 8px;
+        }
+        
+        .log-entry .message {
+            color: #dfe6e9;
+        }
+        
+        .log-entry.error .message {
+            color: #ff7675;
+        }
+        
+        .log-entry.success .message {
+            color: #55efc4;
+        }
+        
+        .log-entry.warning .message {
+            color: #ffeaa7;
+        }
+        
+        .log-entry.info .message {
+            color: #74b9ff;
+        }
+        
+        .diagram-error {
+            background-color: rgba(231, 76, 60, 0.05);
+            border-left: 4px solid var(--danger);
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .diagram-error h4 {
+            color: var(--danger);
+            margin-top: 0;
+        }
+        
+        .diagram-error pre {
+            background-color: #f8f8f8;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        
+        .error-suggestion {
+            background-color: rgba(52, 152, 219, 0.05);
+            border-left: 4px solid var(--primary);
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin: 16px 0;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-right: 12px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--neutral);
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border-left-color: white;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        #loader {
+            /* display: none; // Controlled by JS */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        #loader .spinner {
+            width: 60px;
+            height: 60px;
+            border-width: 6px;
+        }
+        
+        #loader .message {
+            color: white;
+            margin-top: 16px;
+            font-size: 18px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 16px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                text-align: center;
+            }
+        }
+        
+        /* For prettier JSON display */
+        .json-key {
+            color: #dd4a68;
+        }
+        .json-string {
+            color: #690;
+        }
+        .json-number {
+            color: #905;
+        }
+        .json-boolean {
+            color: #07a;
+        }
+        .json-null {
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span style="color:var(--primary);">Mermaid</span> Diagram Processor</h1>
+        <p>Process, validate, and separate valid/invalid Mermaid.js user journey diagrams from JSON data.</p>
+        
+        <!-- --- HTML Structure remains the same as your original processor code --- -->
+        <!-- --- (HTML omitted for brevity, only showing changes/context) --- -->
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Input Data</h2>
+            </div>
+            
+            <div class="file-dropzone" id="dropzone">
+                <p><strong>Drag and drop</strong> your JSON file here, or <strong>click to select</strong> a file</p>
+                <p><small>Accepts .json and .txt files</small></p>
+                <input type="file" id="file-input" accept=".json,.txt" style="display: none;">
+            </div>
+            
+            <div class="toggle-container">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="sample-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <span><strong>Use data from textarea</strong> (toggle off to use file input)</span>
+            </div>
+            
+            <textarea id="input-data" placeholder="Paste your JSON data here..."></textarea>
+            
+            <div class="button-group">
+                <button id="process-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Process Diagrams
+                </button>
+                <button class="btn-warning" id="load-sample-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    Load Sample Data
+                </button>
+                <button class="btn-danger" id="clear-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                    Clear Data
+                </button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Processing Results</h2>
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progress-bar"></div>
+                </div>
+                <div class="progress-details">
+                    <span id="progress-text">0%</span>
+                    <span id="progress-count">0/0 diagrams processed</span>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Total Diagrams</div>
+                    <div class="stat-value" id="total-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Valid Diagrams</div>
+                    <div class="stat-value" id="valid-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Invalid Diagrams</div>
+                    <div class="stat-value" id="invalid-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Processing Time</div>
+                    <div class="stat-value" id="processing-time">0 ms</div>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-success" id="download-all-btn" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download All Results
+                </button>
+                <button class="btn-success" id="download-accepted-btn" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    Download Valid Diagrams
+                </button>
+                <button class="btn-success" id="download-rejected-btn" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    Download Invalid Diagrams
+                </button>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="log">Processing Log</button>
+                <button class="tab" data-tab="summary">Summary</button>
+                <button class="tab" data-tab="accepted">Valid Diagrams</button>
+                <button class="tab" data-tab="rejected">Invalid Diagrams</button>
+            </div>
+            
+            <div class="tab-content active" id="log-tab">
+                <h3>Processing Log</h3>
+                <div class="log-container" id="log-container">
+                    <div class="log-entry info">
+                        <span class="timestamp">[00:00:00]</span>
+                        <span class="status">ℹ️</span>
+                        <span class="message">System ready. Click "Process Diagrams" to start.</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="summary-tab">
+                <h3>Summary</h3>
+                <pre id="summary-results"></pre>
+            </div>
+            
+            <div class="tab-content" id="accepted-tab">
+                <h3>Valid Diagrams</h3>
+                <p>These diagrams passed Mermaid syntax validation.</p>
+                <pre id="accepted-results"></pre>
+            </div>
+            
+            <div class="tab-content" id="rejected-tab">
+                <h3>Invalid Diagrams</h3>
+                <p>These diagrams failed Mermaid syntax validation. Each entry includes error details and fix suggestions.</p>
+                <div id="rejected-results"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="loader" style="display: none;">
+        <div class="spinner"></div>
+        <div class="message">Processing diagrams...</div>
+    </div>
+
+    <!-- ** CHANGE: Use type="module" for the script tag ** -->
+    <script type="module">
+        // ** CHANGE: Import Mermaid as an ES Module **
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.6.0/+esm'
+        
+        // ** CHANGE: If you need external diagrams like ZenUML, uncomment and import/register them here **
+        import zenuml from "https://cdn.jsdelivr.net/npm/@mermaid-js/mermaid-zenuml@0.1.0/dist/mermaid-zenuml.esm.min.mjs";
+        await mermaid.registerExternalDiagrams([zenuml]); // Use await as registration might be async
+
+        // ** CHANGE: Initialize Mermaid *after* importing it **
+        // (Your sample data only uses 'journey', which is built-in, so no external registration is strictly needed for the sample)
+        mermaid.initialize({
+            startOnLoad: false, // Keep this false as we're not auto-rendering on load
+            securityLevel: 'loose',
+            theme: 'default'
+            // Note: You might add specific diagram configs here if needed
+        });
+
+        // --- The rest of your JavaScript code remains largely the same ---
+        // --- Only minor adjustments might be needed if Mermaid API changed subtly ---
+        // --- But the core validation logic using mermaid.parse() should now use the updated engine ---
+
+        // DOM Elements (Same as before)
+        const inputTextarea = document.getElementById('input-data');
+        const processButton = document.getElementById('process-btn');
+        const clearButton = document.getElementById('clear-btn');
+        const summaryResults = document.getElementById('summary-results');
+        const acceptedResults = document.getElementById('accepted-results');
+        const rejectedResults = document.getElementById('rejected-results');
+        const downloadAllButton = document.getElementById('download-all-btn');
+        const downloadAcceptedButton = document.getElementById('download-accepted-btn');
+        const downloadRejectedButton = document.getElementById('download-rejected-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressCount = document.getElementById('progress-count');
+        const totalCountEl = document.getElementById('total-count');
+        const validCountEl = document.getElementById('valid-count');
+        const invalidCountEl = document.getElementById('invalid-count');
+        const processingTimeEl = document.getElementById('processing-time');
+        const loadSampleButton = document.getElementById('load-sample-btn');
+        const sampleToggle = document.getElementById('sample-toggle');
+        const fileInput = document.getElementById('file-input');
+        const dropzone = document.getElementById('dropzone');
+        const loader = document.getElementById('loader');
+        const logContainer = document.getElementById('log-container');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // Global variables (Same as before)
+        let processedData = null;
+        let acceptedDiagrams = null;
+        let rejectedDiagrams = null;
+        let fileContentCache = null;
+        let processingStartTime = null;
+
+        // Sample data (Same as before)
+        const sampleData = [
+          {
+            "diagram_type": "userJourney",
+            "prompt": "Create a User Journey diagram for organizing a community event. Title: 'Community Event Planning'. Sections: 'Planning', 'Promotion', 'Execution', 'Wrap-up'.",
+            "output": "journey\n    title Community Event Planning\n    section Planning\n      Define Event Goal & Budget: 6: Organizer, Committee\n      Secure Venue & Date: 5: Organizer\n      Plan Activities/Speakers: 7: Committee\n    section Promotion\n      Create Marketing Materials: 4: Organizer\n      Promote via Social Media/Email: 3: Organizer\n    section Execution\n      Setup Event Space: 5: Organizer, Volunteers\n      Manage Event Flow: 8: Organizer\n      Engage Attendees: 6: Organizer, Volunteers\n    section Wrap-up\n      Gather Feedback: 3: Organizer\n      Thank Participants/Sponsors: 2: Organizer"
+          },
+          {
+            "diagram_type": "userJourney",
+            "prompt": "Generate a User Journey diagram for using a public transport app. Title: 'Public Transport App Usage'. Sections: 'Planning', 'Travel', 'Arrival'.",
+            "output": "journey\n    title Public Transport App Usage\n    section Planning\n      Enter Destination: 2: Passenger\n      Check Routes & Times: 3: Passenger\n      Purchase Ticket (if applicable): 4: Passenger\n    section Travel\n      Go to Stop/Station: 3: Passenger\n      Track Vehicle Real-time: 2: Passenger, App\n      Board Vehicle: 1: Passenger\n    section Arrival\n      Receive Arrival Alert: 1: App, Passenger\n      Alight at Destination: 1: Passenger"
+          },
+          {
+            "diagram_type": "userJourney",
+            "prompt": "Error test example with missing colon",
+            "output": "journey\n    title Test Error\n    section Missing Colon\n      This task has no score or actor\n    section Invalid Format\n      Task With Error: ABC: User"
+          },
+          {
+            "diagram_type": "userJourney",
+            "prompt": "Error test example with incorrect section format",
+            "output": "journey\n    title Another Error Example\n    sectionWithoutSpace Planning\n      Task One: 3: User\n      Task Two: 2: System"
+          }
+        ];
+
+        /**
+         * Add a log entry to the log container
+         * @param {string} message - The log message
+         * @param {string} type - The type of log (info, success, error, warning)
+         */
+        function log(message, type = 'info') {
+            const now = new Date();
+            const timestamp = now.toTimeString().split(' ')[0];
+            
+            const statusIcon = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'processing': '🔄'
+            }[type] || 'ℹ️';
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `
+                <span class="timestamp">[${timestamp}]</span>
+                <span class="status">${statusIcon}</span>
+                <span class="message">${message}</span>
+            `;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        /**
+         * Format JSON for display
+         * @param {string} json - The JSON string to format
+         * @returns {string} HTML formatted JSON
+         */
+        function formatJSON(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+            
+            // Escape HTML characters first
+            let escapedJson = json.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+            
+            // Apply syntax highlighting
+            return escapedJson.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                // Add extra check to prevent applying number class to strings that look like numbers
+                if (cls === 'json-number' && isNaN(parseFloat(match))) {
+                   // Don't apply class if it's not a valid number, might be part of a string
+                } else {
+                    return '<span class="' + cls + '">' + match + '</span>';
+                }
+                 return match; // Return original match if it doesn't fit expected patterns
+            });
+        }
+
+
+        /**
+         * Extract diagrams from various content formats
+         * @param {string} content - The content to parse
+         * @returns {Array} Array of diagram objects
+         */
+        function extractDiagramsFromContent(content) {
+            log('Extracting diagrams from content...', 'processing');
+            
+            try {
+                // Try parsing as a JSON array
+                try {
+                    const data = JSON.parse(content);
+                    if (Array.isArray(data)) {
+                        log(`Found ${data.length} diagrams in JSON array format`, 'success');
+                        return data.map((item, index) => ({ ...item, originalIndex: index })); // Add original index
+                    } else if (typeof data === 'object' && data !== null) {
+                        // Handle case where it's a single object, wrap in array
+                         log(`Found 1 diagram in single JSON object format`, 'success');
+                         return [{ ...data, originalIndex: 0 }];
+                    }
+                } catch (e) {
+                    log('Not a standard JSON array/object, trying other formats...', 'info');
+                }
+                
+                // Try parsing as concatenated JSON objects (heuristic)
+                // This regex is basic and might fail on complex cases
+                const jsonPattern = /\{(?:[^{}]|"(?:\\.|[^"\\])*")*\}/g;
+                const matches = content.match(jsonPattern);
+                
+                if (matches && matches.length > 0) {
+                    let potentialDiagrams = [];
+                    matches.forEach((jsonStr, index) => {
+                         try {
+                            const parsed = JSON.parse(jsonStr.trim());
+                            // Basic check if it looks like a diagram entry
+                            if (parsed && typeof parsed === 'object' && ('output' in parsed || 'prompt' in parsed)) {
+                                potentialDiagrams.push({ ...parsed, originalIndex: index }); // Add original index
+                            }
+                        } catch (err) {
+                            log(`Warning: Skipping potential JSON fragment at index ${index}: ${jsonStr.substring(0, 50)}...`, 'warning');
+                        }
+                    });
+
+                    if (potentialDiagrams.length > 0) {
+                         log(`Potentially found ${potentialDiagrams.length} diagrams in concatenated/malformed JSON format`, 'success');
+                         return potentialDiagrams;
+                     }
+                }
+                
+                // Try line-by-line parsing as a last resort (JSON per line)
+                const lines = content.trim().split('\n');
+                const diagrams = lines.map((line, index) => {
+                    try {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                             const parsed = JSON.parse(trimmed);
+                             // Basic check if it looks like a diagram entry
+                            if (parsed && typeof parsed === 'object' && ('output' in parsed || 'prompt' in parsed)) {
+                                 return { ...parsed, originalIndex: index }; // Add original index
+                             }
+                        }
+                        return null;
+                    } catch (err) {
+                         return null; // Ignore lines that are not valid JSON objects
+                    }
+                }).filter(item => item !== null);
+                
+                if (diagrams.length > 0) {
+                    log(`Found ${diagrams.length} diagrams in line-by-line JSON format`, 'success');
+                    return diagrams;
+                }
+                
+                throw new Error("No valid diagram data found. Input must be a JSON array, a single JSON object, concatenated JSON objects, or JSON objects per line.");
+            } catch (error) {
+                log(`Error extracting diagrams: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        /**
+         * Validate a Mermaid diagram
+         * @param {string} diagram - The Mermaid diagram syntax
+         * @returns {Promise<{isValid: boolean, error: string|null}>}
+         */
+        async function validateMermaidDiagram(diagram) {
+            if (!diagram || typeof diagram !== 'string' || diagram.trim() === '') {
+                return { 
+                    isValid: false, 
+                    error: 'Invalid or empty diagram content provided' 
+                };
+            }
+
+            try {
+                // Use mermaid.parse with the updated Mermaid instance
+                // Ensure the diagram string doesn't have leading/trailing whitespace issues
+                await mermaid.parse(diagram.trim()); 
+                return { isValid: true, error: null };
+            } catch (error) {
+                 // Attempt to provide a more specific error message if possible
+                 let errorMessage = 'Unknown parsing error';
+                 if (error instanceof Error) {
+                     errorMessage = error.message;
+                 } else if (typeof error === 'string') {
+                     errorMessage = error;
+                 } else if (error && typeof error.str === 'string') {
+                      // Sometimes Mermaid errors have a 'str' property
+                      errorMessage = error.str;
+                 }
+                 
+                 // Clean up common noise in error messages
+                 errorMessage = errorMessage.replace(/Parse error on line \d+:/, '').trim();
+
+                return { isValid: false, error: errorMessage };
+            }
+        }
+
+
+        /**
+         * Suggest fixes for common Mermaid syntax errors
+         * @param {string} error - The error message from mermaid.parse()
+         * @param {string} diagram - The diagram code
+         * @returns {string} Suggested fix
+         */
+        function suggestFix(error, diagram) {
+            if (!error || !diagram) return "Unable to suggest fixes without error details and diagram code.";
+            
+            error = error.toLowerCase(); // Case-insensitive matching
+            diagram = diagram.trim();
+
+            // Check for missing journey declaration
+            if (!diagram.startsWith("journey")) {
+                return "Missing 'journey' declaration. User journey diagrams must start with the 'journey' keyword at the beginning.";
+            }
+
+            // Specific errors from parser
+            if (error.includes("expecting") && error.includes("got")) {
+                 if (error.includes("':'") && error.includes('task')) {
+                    return "Syntax error in task definition. Check format: 'Task Description: score: Actor1, Actor2'. Ensure colon after description and score.";
+                 }
+                 if (error.includes('section') && !error.includes('task')){
+                      return "Syntax error near section definition. Ensure sections start with 'section Section Name' on their own line, properly indented.";
+                 }
+                 if (error.includes('title') && !error.includes('task')){
+                      return "Syntax error near title definition. Ensure the title follows 'title Your Title Name' format, typically after 'journey'.";
+                 }
+                return `Syntax error: Parser expected one thing but found another. Review the line mentioned in the full error, looking for typos, missing symbols (like ':'), or incorrect keywords. (${error})`;
+            }
+
+             if (error.includes("lexical error")) {
+                return "Lexical error detected. This often means an invalid character or sequence was used. Check for typos or characters not allowed in Mermaid syntax.";
+            }
+
+            // Heuristic checks based on common mistakes
+             const lines = diagram.split('\n');
+             if (lines.length > 1 && !lines[1].trim().startsWith("title")) {
+                 // Check if title is missing or misplaced
+                 let hasTitle = lines.some(line => line.trim().startsWith("title"));
+                 if (!hasTitle) {
+                    return "Missing 'title' declaration. Add 'title Your Title Name' usually right after the 'journey' line.";
+                 }
+             }
+
+             // Check indentation consistency (basic check)
+             const indentations = lines.slice(1) // Skip 'journey' line
+                                     .map(line => line.match(/^\s*/)[0].length)
+                                     .filter((len, i, arr) => len > 0 && (i === 0 || len !== arr[i-1])); // Find changes in indentation
+            
+             if (new Set(indentations).size > 2) { // Allow for 0 and one level of indent typically
+                 // This is a rough check, might need refinement
+                 // return "Inconsistent indentation detected. Ensure tasks within a section have the same indentation level (e.g., 4 spaces).";
+             }
+            
+             // Check for tasks outside sections (common error)
+             let inSection = false;
+             for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine.startsWith("section")) {
+                    inSection = true;
+                } else if (trimmedLine && !trimmedLine.startsWith("title") && !trimmedLine.startsWith("journey") && !trimmedLine.startsWith("section") && !inSection) {
+                     return "Task found before the first section. All tasks must belong to a section. Ensure sections are defined before tasks.";
+                 }
+            }
+             
+             // Check task format (basic regex)
+            const taskRegex = /^\s*[^:]+:\s*\d+:\s*[^:]+$/; // Simplified: text: number: text
+             for (const line of lines) {
+                 const trimmedLine = line.trim();
+                 if (trimmedLine && !trimmedLine.startsWith("title") && !trimmedLine.startsWith("journey") && !trimmedLine.startsWith("section")) {
+                     if (!taskRegex.test(trimmedLine)) {
+                         return `Potential task format error on line: "${line.trim()}". Check if it follows 'Description: score: Actor(s)' format. Ensure colons are present and correctly placed.`;
+                     }
+                 }
+            }
+
+            // Generic message
+            return `Mermaid syntax error. Review the diagram, especially around the area indicated by the full error message if available. Common issues include missing colons, incorrect indentation, tasks outside sections, or typos. Full Error: ${error}`;
+        }
+
+        /**
+         * Process a single diagram entry
+         * @param {Object} entry - The diagram entry with prompt, output, and originalIndex fields
+         * @param {number} currentIndex - The current index in the processing loop
+         * @param {number} total - The total number of entries
+         * @returns {Promise<Object>} The processed entry with validation results
+         */
+        async function processDiagramEntry(entry, currentIndex, total) {
+            // Use originalIndex if available, otherwise use currentIndex
+            const displayIndex = entry.originalIndex !== undefined ? entry.originalIndex : currentIndex; 
+            const { diagram_type, prompt, output } = entry;
+            
+            // Basic validation of the entry structure
+            if (typeof output !== 'string') {
+                const message = `Entry ${displayIndex + 1}/${total}: Invalid format - 'output' field is missing or not a string. Skipping.`;
+                log(message, 'warning');
+                return {
+                    ...entry, // Keep original data
+                    is_valid: false,
+                    validation_error: "Input format error: 'output' field is missing or not a string.",
+                    cleaned_output: null,
+                    error_details: {
+                        message: "Invalid input structure",
+                        suggestion: "Ensure each item in the input data has an 'output' property containing the Mermaid code as a string."
+                    }
+                };
+            }
+             if (!diagram_type) {
+                log(`Entry ${displayIndex + 1}/${total}: 'diagram_type' field missing. Proceeding with validation.`, 'warning');
+                // Continue processing, but note the missing field
+            }
+            
+            // Log processing status using displayIndex
+            const processingMessage = `Processing ${currentIndex + 1}/${total} (Original Index: ${displayIndex + 1}): ${diagram_type || 'Unknown type'} diagram`;
+            log(processingMessage, 'processing');
+            
+            // Validate the diagram using the updated Mermaid instance
+            const validationResult = await validateMermaidDiagram(output);
+            
+            // Create the processed entry
+            const processedEntry = {
+                ...entry, // Include all original fields like prompt, originalIndex etc.
+                is_valid: validationResult.isValid,
+                validation_error: validationResult.error,
+                // Keep original output even if invalid, cleaned_output might not be needed
+                // cleaned_output: validationResult.isValid ? output : null 
+            };
+            
+            // Add error details if diagram is invalid
+            if (!validationResult.isValid) {
+                processedEntry.error_details = {
+                    message: validationResult.error || 'Validation Failed', // Ensure message exists
+                    suggestion: suggestFix(validationResult.error, output)
+                };
+                log(`Diagram ${currentIndex + 1}/${total} (Original Index: ${displayIndex + 1}) is INVALID: ${processedEntry.error_details.message}`, 'error');
+            } else {
+                log(`Diagram ${currentIndex + 1}/${total} (Original Index: ${displayIndex + 1}) is VALID`, 'success');
+            }
+            
+            return processedEntry;
+        }
+
+
+        /**
+         * Process all diagrams with progress updates
+         * @param {Array} diagrams - Array of diagram objects from extractDiagramsFromContent
+         * @returns {Promise<Object>} Processing results
+         */
+        async function processDiagrams(diagrams) {
+            const total = diagrams.length;
+            const results = [];
+            const validDiagrams = [];
+            const invalidDiagrams = [];
+            
+            log(`Starting to process ${total} diagrams...`, 'info');
+            processingStartTime = performance.now(); // Start timer here
+            
+            // Reset progress bar for new processing run
+             updateProgress(0, 0, total);
+            
+            for (let i = 0; i < total; i++) {
+                 // Make sure diagrams[i] is valid before processing
+                 if (!diagrams[i] || typeof diagrams[i] !== 'object') {
+                     log(`Skipping invalid entry at index ${i}`, 'warning');
+                      // Optionally create a placeholder error entry
+                     results.push({ 
+                         originalIndex: i, 
+                         is_valid: false, 
+                         validation_error: 'Invalid input item structure',
+                         error_details: { message: 'Invalid input item structure', suggestion: 'Ensure input is array of objects' }
+                      });
+                      invalidDiagrams.push(results[results.length - 1]);
+                     updateProgress((i + 1) / total, i + 1, total);
+                     continue; // Skip to the next item
+                 }
+
+                const result = await processDiagramEntry(diagrams[i], i, total);
+                results.push(result);
+                
+                // Categorize by validity
+                if (result.is_valid) {
+                    validDiagrams.push(result);
+                } else {
+                    invalidDiagrams.push(result);
+                }
+                
+                // Update progress
+                updateProgress((i + 1) / total, i + 1, total);
+                
+                // Yield control briefly to allow UI updates, especially for large datasets
+                 if (i % 50 === 0) { // Adjust frequency as needed
+                    await new Promise(resolve => setTimeout(resolve, 0)); 
+                 }
+            }
+            
+            const processingTime = performance.now() - processingStartTime;
+            
+            log(`Processing complete! ${validDiagrams.length} valid, ${invalidDiagrams.length} invalid. Time: ${processingTime.toFixed(0)}ms`, 'success');
+            
+            // Create the full results object
+            const fullResults = {
+                processed_date: new Date().toISOString(),
+                total_diagrams: results.length, // Use results.length which includes skipped/error items
+                valid_diagrams: validDiagrams.length,
+                invalid_diagrams: invalidDiagrams.length,
+                processing_time_ms: Math.round(processingTime),
+                diagrams: results // Contains all processed items, including errors/invalid ones
+            };
+            
+            // Create separate objects for accepted and rejected diagrams
+            // These contain only the successfully processed valid/invalid diagrams
+             const acceptedResults = {
+                 processed_date: new Date().toISOString(),
+                 count: validDiagrams.length,
+                 diagrams: validDiagrams // Only valid diagrams
+             };
+            
+            const rejectedResults = {
+                 processed_date: new Date().toISOString(),
+                 count: invalidDiagrams.length,
+                 diagrams: invalidDiagrams // Only invalid diagrams (including format errors)
+             };
+
+            
+            return {
+                full: fullResults,
+                accepted: acceptedResults,
+                rejected: rejectedResults
+            };
+        }
+
+
+        /**
+         * Update the progress display
+         * @param {number} progress - Progress value (0-1)
+         * @param {number} current - Current item number
+         * @param {number} total - Total items
+         */
+        function updateProgress(progress, current, total) {
+             // Ensure total is not zero to avoid division by zero
+             if (total === 0) {
+                 progress = 0;
+                 current = 0;
+             } else {
+                 // Clamp progress between 0 and 1
+                 progress = Math.max(0, Math.min(1, progress));
+             }
+
+            const percent = Math.round(progress * 100);
+            progressBar.style.width = `${percent}%`;
+            progressText.textContent = `${percent}%`;
+            // Handle the case where total might be 0 initially
+            progressCount.textContent = `${current}/${total} diagrams processed`;
+        }
+
+        /**
+         * Process the input data
+         */
+        async function processInputData() {
+            // Disable UI during processing
+            processButton.disabled = true;
+            clearButton.disabled = true; // Also disable clear during processing
+            downloadAllButton.disabled = true;
+            downloadAcceptedButton.disabled = true;
+            downloadRejectedButton.disabled = true;
+            loader.style.display = 'flex';
+            
+            // Clear previous results and logs (keep initial log message)
+            clearResults(); 
+             log('Starting processing...', 'info'); // Add start log
+            
+            // Reset progress
+            updateProgress(0, 0, 0); 
+
+            try {
+                // Get input content
+                let content;
+                const useTextArea = sampleToggle.checked;
+                
+                if (useTextArea) {
+                    content = inputTextarea.value.trim();
+                     log('Processing data from textarea...', 'info');
+                    if (!content) {
+                        throw new Error("Textarea is empty. Please enter JSON data or upload a file.");
+                    }
+                } else {
+                    if (!fileContentCache) {
+                        throw new Error("No file loaded. Please upload a file or switch toggle to use textarea.");
+                    }
+                     log('Processing data from loaded file...', 'info');
+                    content = fileContentCache;
+                }
+                
+                // Extract diagrams from content
+                const diagrams = extractDiagramsFromContent(content);
+                
+                // Check if extraction yielded any diagrams
+                if (!diagrams || diagrams.length === 0) {
+                     // extractDiagramsFromContent should throw, but double-check
+                     throw new Error("Could not extract any diagram data from the input. Check format.");
+                }
+
+                 // Update total count in stats early
+                 totalCountEl.textContent = diagrams.length;
+                 updateProgress(0, 0, diagrams.length); // Initialize progress bar with total
+                
+                // Process diagrams
+                const results = await processDiagrams(diagrams);
+                
+                // Store the results
+                processedData = results.full;
+                acceptedDiagrams = results.accepted;
+                rejectedDiagrams = results.rejected;
+                
+                // Update UI with final results
+                updateStats(processedData); // Update all stats including counts and time
+                displayResults(); // Display summaries and details in tabs
+                
+                // Enable relevant download buttons
+                downloadAllButton.disabled = !processedData || processedData.diagrams.length === 0;
+                downloadAcceptedButton.disabled = !acceptedDiagrams || acceptedDiagrams.diagrams.length === 0;
+                downloadRejectedButton.disabled = !rejectedDiagrams || rejectedDiagrams.diagrams.length === 0;
+
+                 // Optionally switch to a specific results tab, e.g., summary or log
+                 switchTab('log'); // Stay on log tab to see final messages
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`, 'error');
+                console.error('Processing error:', error);
+                // Display error to user in UI if needed, e.g., in the summary tab
+                 summaryResults.innerHTML = `<pre style="color: var(--danger);">Processing failed:\n${error.message}</pre>`;
+                 // Ensure stats reflect failure state if appropriate
+                 totalCountEl.textContent = 'ERR';
+                 validCountEl.textContent = '-';
+                 invalidCountEl.textContent = '-';
+                 processingTimeEl.textContent = '-';
+            } finally {
+                 // Re-enable UI elements
+                processButton.disabled = false;
+                clearButton.disabled = false; // Re-enable clear button
+                 // Download buttons state is set based on results within try/catch
+                loader.style.display = 'none'; // Hide loader
+            }
+        }
+
+
+        /**
+         * Update the statistics display
+         * @param {Object} data - Processed data with statistics (processedData.full)
+         */
+        function updateStats(data) {
+             // Check if data is available
+             if (!data) {
+                 totalCountEl.textContent = '0';
+                 validCountEl.textContent = '0';
+                 invalidCountEl.textContent = '0';
+                 processingTimeEl.textContent = '0 ms';
+                 return;
+             }
+
+            totalCountEl.textContent = data.total_diagrams ?? '0';
+            validCountEl.textContent = data.valid_diagrams ?? '0';
+            invalidCountEl.textContent = data.invalid_diagrams ?? '0';
+            // Ensure processing_time_ms exists and is a number
+            const timeMs = (typeof data.processing_time_ms === 'number') ? Math.round(data.processing_time_ms) : 0;
+            processingTimeEl.textContent = `${timeMs} ms`;
+        }
+
+
+        /**
+         * Clear all results, logs, stats, and reset global data
+         */
+        function clearResults() {
+            // Clear display areas
+            summaryResults.innerHTML = '';
+            acceptedResults.innerHTML = '';
+            rejectedResults.innerHTML = ''; // Clear the container div
+            
+            // Reset stats display
+            updateStats(null); // Use null to reset stats via updateStats function
+             
+             // Reset progress bar display
+            updateProgress(0, 0, 0);
+            
+            // Clear log container (optional: keep initial message)
+            logContainer.innerHTML = ''; // Clear all previous logs
+            log('System ready. Load data and click "Process Diagrams".', 'info'); // Add a fresh ready message
+            
+            // Reset global data variables
+            processedData = null;
+            acceptedDiagrams = null;
+            rejectedDiagrams = null;
+            // Do NOT clear fileContentCache here, user might want to re-process the same file
+            // Do NOT clear inputTextarea here unless explicitly requested by clearData function
+
+            // Disable download buttons as there's no data
+            downloadAllButton.disabled = true;
+            downloadAcceptedButton.disabled = true;
+            downloadRejectedButton.disabled = true;
+
+             // Ensure the first tab (e.g., log) is active
+            switchTab('log'); 
+        }
+
+
+        /**
+         * Display results in the UI tabs
+         */
+        function displayResults() {
+             // Ensure we have processed data before proceeding
+             if (!processedData || !acceptedDiagrams || !rejectedDiagrams) {
+                 log('Cannot display results: No processed data available.', 'warning');
+                 // Optionally display a message in the UI
+                 summaryResults.innerHTML = '<p>No results to display. Please process data first.</p>';
+                 acceptedResults.innerHTML = '';
+                 rejectedResults.innerHTML = '';
+                 return;
+             }
+
+             // --- Display Summary ---
+            const summary = {
+                processed_date: processedData.processed_date,
+                total_diagrams_processed: processedData.total_diagrams, // Reflects actual items processed
+                valid_diagrams: processedData.valid_diagrams,
+                invalid_diagrams: processedData.invalid_diagrams,
+                processing_time_ms: processedData.processing_time_ms,
+                success_rate: processedData.total_diagrams > 0 
+                    ? `${((processedData.valid_diagrams / processedData.total_diagrams) * 100).toFixed(1)}%`
+                    : 'N/A'
+            };
+            summaryResults.innerHTML = formatJSON(summary); // Use the JSON formatter
+            
+            // --- Display Accepted Diagrams (Preview or Full) ---
+            // Decide whether to show preview or all based on count
+             const maxPreview = 10; // Max items to show directly in the 'Accepted' tab
+             if (acceptedDiagrams.diagrams.length === 0) {
+                 acceptedResults.innerHTML = '<p>No valid diagrams were found.</p>';
+             } else if (acceptedDiagrams.diagrams.length <= maxPreview) {
+                 acceptedResults.innerHTML = formatJSON(acceptedDiagrams.diagrams); // Show all if few
+             } else {
+                 // Show preview and message
+                 const acceptedPreview = acceptedDiagrams.diagrams.slice(0, maxPreview);
+                 acceptedResults.innerHTML = formatJSON(acceptedPreview);
+                 acceptedResults.innerHTML += `<div style="margin-top: 15px; font-style: italic; color: var(--neutral-dark);">Showing first ${maxPreview} valid diagrams. Download the full list (${acceptedDiagrams.diagrams.length} total) using the button above.</div>`;
+             }
+
+            // --- Display Rejected Diagrams with Details ---
+            rejectedResults.innerHTML = ''; // Clear previous rejected content first
+            
+            if (rejectedDiagrams.diagrams.length === 0) {
+                rejectedResults.innerHTML = '<p>Congratulations! No invalid diagrams found.</p>';
+            } else {
+                 // Add a count summary for rejected diagrams
+                 const rejectedSummary = document.createElement('p');
+                 rejectedSummary.textContent = `Found ${rejectedDiagrams.diagrams.length} invalid diagram(s):`;
+                 rejectedResults.appendChild(rejectedSummary);
+
+                rejectedDiagrams.diagrams.forEach((diagram, index) => {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'diagram-error'; // Existing class for styling
+                    
+                    // Use originalIndex if available, otherwise use loop index
+                     const displayIndex = diagram.originalIndex !== undefined ? diagram.originalIndex + 1 : index + 1;
+                     const diagramId = `Error ${index + 1} (Original Index: ${displayIndex})`;
+
+                    const titleEl = document.createElement('h4');
+                    titleEl.textContent = `${diagramId}: ${diagram.diagram_type || 'Unknown Type'}`;
+                    errorDiv.appendChild(titleEl);
+
+                    // Display prompt if available
+                    if (diagram.prompt) {
+                         const promptEl = document.createElement('p');
+                         promptEl.innerHTML = `<strong>Prompt:</strong> ${diagram.prompt}`;
+                         errorDiv.appendChild(promptEl);
+                    }
+                    
+                    // Display the problematic output code
+                    const outputTitle = document.createElement('strong');
+                     outputTitle.textContent = 'Problematic Output:';
+                     errorDiv.appendChild(outputTitle);
+
+                     const codeEl = document.createElement('pre');
+                     codeEl.textContent = diagram.output || '[No output provided]';
+                     errorDiv.appendChild(codeEl);
+                    
+                    // Display the specific validation error message
+                     const errorMsgEl = document.createElement('p');
+                     errorMsgEl.innerHTML = `<strong>Validation Error:</strong> <span style="color: var(--danger-dark); font-weight: bold;">${diagram.validation_error || 'Unknown validation error'}</span>`;
+                     errorDiv.appendChild(errorMsgEl);
+                    
+                    // Display the suggested fix (if available)
+                    if (diagram.error_details?.suggestion) {
+                        const suggestionDiv = document.createElement('div');
+                        suggestionDiv.className = 'error-suggestion'; // Existing class
+                        suggestionDiv.innerHTML = `<strong>Suggestion:</strong> ${diagram.error_details.suggestion}`;
+                        errorDiv.appendChild(suggestionDiv);
+                    }
+                    
+                    rejectedResults.appendChild(errorDiv);
+                });
+            }
+        }
+
+
+        /**
+         * Switch to a specific tab
+         * @param {string} tabId - The 'data-tab' value of the tab to switch to
+         */
+        function switchTab(tabId) {
+             // Check if the requested tabId exists
+             const targetTab = document.querySelector(`.tab[data-tab="${tabId}"]`);
+             const targetContent = document.getElementById(`${tabId}-tab`);
+
+             if (!targetTab || !targetContent) {
+                 console.warn(`Tab or content not found for ID: ${tabId}`);
+                 return; // Exit if tab/content doesn't exist
+             }
+
+            // Remove 'active' class from all tabs and contents
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Add 'active' class to the clicked tab and corresponding content
+            targetTab.classList.add('active');
+            targetContent.classList.add('active');
+
+            // Optional: Log tab switch
+            // log(`Switched to tab: ${tabId}`, 'info');
+        }
+
+        /**
+         * Download data as a JSON file
+         * @param {Object|Array} data - The data to download
+         * @param {string} filename - The suggested filename
+         */
+        function downloadData(data, filename) {
+             if (!data) {
+                 log('Download failed: No data provided.', 'error');
+                 alert("Error: No data available to download.");
+                 return;
+             }
+
+             try {
+                 // Ensure data is stringified properly
+                 const dataStr = JSON.stringify(data, null, 2); // Pretty print JSON
+                 const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8;' });
+                 
+                 // Use FileSaver.js logic if available, otherwise fallback
+                 if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                     // For IE/Edge
+                     window.navigator.msSaveOrOpenBlob(blob, filename);
+                 } else {
+                     // For modern browsers
+                     const url = URL.createObjectURL(blob);
+                     const link = document.createElement('a');
+                     
+                     link.href = url;
+                     link.download = filename;
+                     link.style.display = 'none'; // Hide the link
+                     
+                     document.body.appendChild(link);
+                     link.click();
+                     
+                     // Clean up: remove link and revoke URL after a short delay
+                     setTimeout(() => {
+                         document.body.removeChild(link);
+                         URL.revokeObjectURL(url);
+                     }, 100);
+                 }
+                 
+                 log(`File download initiated: ${filename}`, 'success');
+
+             } catch (error) {
+                 log(`Error preparing download for ${filename}: ${error.message}`, 'error');
+                 console.error("Download error:", error);
+                 alert(`Failed to prepare download: ${error.message}`);
+             }
+        }
+
+
+        /**
+         * Download all processed results
+         */
+        function downloadAllResults() {
+            if (!processedData || processedData.diagrams.length === 0) {
+                 log('No processed data available to download for "All Results".', 'warning');
+                alert("No processed data available to download.");
+                return;
+            }
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadData(
+                processedData, 
+                `mermaid_all_results_${timestamp}.json`
+            );
+        }
+
+        /**
+         * Download only the accepted (valid) diagrams
+         */
+        function downloadAcceptedDiagrams() {
+            if (!acceptedDiagrams || acceptedDiagrams.diagrams.length === 0) {
+                 log('No valid diagrams available to download.', 'warning');
+                alert("No valid diagrams available to download.");
+                return;
+            }
+            
+             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadData(
+                acceptedDiagrams, 
+                `mermaid_valid_diagrams_${timestamp}.json`
+            );
+        }
+
+        /**
+         * Download only the rejected (invalid) diagrams
+         */
+        function downloadRejectedDiagrams() {
+            if (!rejectedDiagrams || rejectedDiagrams.diagrams.length === 0) {
+                 log('No invalid diagrams available to download.', 'warning');
+                alert("No invalid diagrams available to download.");
+                return;
+            }
+            
+             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadData(
+                rejectedDiagrams, 
+                `mermaid_invalid_diagrams_${timestamp}.json`
+            );
+        }
+
+
+        /**
+         * Load sample data into the textarea and set toggle
+         */
+        function loadSampleData() {
+             try {
+                 inputTextarea.value = JSON.stringify(sampleData, null, 2); // Pretty print
+                 sampleToggle.checked = true; // Ensure toggle is set to use textarea
+                 fileContentCache = null; // Clear file cache if sample is loaded
+                 log('Sample data loaded into textarea.', 'info');
+                  // Clear previous results when loading new sample data
+                  clearResults();
+             } catch (error) {
+                 log('Error loading sample data.', 'error');
+                 console.error("Sample data stringify error:", error);
+                 inputTextarea.value = "Error loading sample data.";
+             }
+        }
+
+        /**
+         * Clear input textarea, file cache, and all results/logs
+         */
+        function clearData() {
+            inputTextarea.value = ''; // Clear textarea
+            fileInput.value = null; // Reset file input selection
+            fileContentCache = null; // Clear cached file content
+            clearResults(); // Clear all outputs, stats, logs, and reset variables
+            sampleToggle.checked = true; // Optionally reset toggle to default (textarea)
+            log('Cleared all input data and results.', 'info');
+        }
+
+
+        /**
+         * Handle tab switching via clicks
+         * @param {Event} e - The click event
+         */
+        function handleTabClick(e) {
+             // Ensure the click is directly on a button with data-tab attribute
+             const tabButton = e.target.closest('button.tab[data-tab]');
+             if (tabButton) {
+                 const tabId = tabButton.getAttribute('data-tab');
+                 switchTab(tabId);
+             }
+        }
+
+        /**
+         * Handle file selection via input element
+         * @param {Event} event - The change event from the file input
+         */
+        function handleFileSelect(event) {
+            const file = event.target.files ? event.target.files[0] : null;
+            if (!file) {
+                 log('No file selected.', 'info');
+                 return; // No file chosen
+            }
+
+             // Optional: Check file type and size
+             const allowedTypes = ['application/json', 'text/plain'];
+             const maxSize = 10 * 1024 * 1024; // 10 MB limit example
+
+            if (!allowedTypes.includes(file.type) && file.type !== '') { // Allow empty type for .txt sometimes
+                 log(`Invalid file type: ${file.type}. Please upload .json or .txt`, 'error');
+                 alert(`Invalid file type: ${file.type}. Please upload .json or .txt`);
+                 fileInput.value = null; // Reset input
+                 return;
+             }
+             if (file.size > maxSize) {
+                  log(`File too large: ${formatFileSize(file.size)}. Maximum size is ${formatFileSize(maxSize)}`, 'error');
+                 alert(`File too large: ${formatFileSize(file.size)}. Maximum size is ${formatFileSize(maxSize)}`);
+                 fileInput.value = null; // Reset input
+                 return;
+             }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                 try {
+                    fileContentCache = e.target.result;
+                    sampleToggle.checked = false; // Switch toggle to use file input
+                     log(`File loaded successfully: ${file.name} (${formatFileSize(file.size)})`, 'success');
+                      // Clear previous results when loading a new file
+                      clearResults();
+                 } catch (readError) {
+                     log(`Error processing file content: ${readError.message}`, 'error');
+                     alert("Error reading file content.");
+                     fileContentCache = null;
+                     fileInput.value = null; // Reset input
+                 }
+            };
+            
+            reader.onerror = function(e) {
+                log(`Error reading file ${file.name}: ${e.target.error}`, 'error');
+                alert("Error reading file. Check browser permissions or file integrity.");
+                 fileContentCache = null;
+                 fileInput.value = null; // Reset input
+            };
+            
+             reader.readAsText(file); // Read file as text
+        }
+
+
+        /**
+         * Format file size in human-readable format
+         * @param {number} bytes - The file size in bytes
+         * @returns {string} Human-readable file size
+         */
+        function formatFileSize(bytes) {
+             if (bytes === 0) return '0 Bytes';
+             const k = 1024;
+             const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+             const i = Math.floor(Math.log(bytes) / Math.log(k));
+             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        // --- Drag and Drop Handlers ---
+
+        /** Prevent default behavior for drag events */
+         function preventDefaults(e) {
+             e.preventDefault();
+             e.stopPropagation();
+         }
+
+        /** Highlight dropzone on drag over */
+         function highlight(e) {
+             preventDefaults(e);
+             dropzone.classList.add('highlight');
+         }
+
+        /** Remove highlight on drag leave */
+         function unhighlight(e) {
+             preventDefaults(e);
+             dropzone.classList.remove('highlight');
+         }
+
+        /** Handle dropped files */
+         function handleDrop(e) {
+             preventDefaults(e);
+             dropzone.classList.remove('highlight');
+             
+             const dt = e.dataTransfer;
+             const files = dt.files;
+
+             if (files.length > 1) {
+                  log('Please drop only one file.', 'warning');
+                 alert('Please drop only one file.');
+                 return;
+             }
+             if (files.length === 1) {
+                 // Manually trigger the file select handler logic
+                 handleFileSelect({ target: { files: files } }); 
+                 // Note: We don't set fileInput.files directly as it's read-only for security.
+                 // Instead, we pass the files object to our handler.
+             }
+         }
+
+        // --- Event Listeners ---
+        processButton.addEventListener('click', processInputData);
+        downloadAllButton.addEventListener('click', downloadAllResults);
+        downloadAcceptedButton.addEventListener('click', downloadAcceptedDiagrams);
+        downloadRejectedButton.addEventListener('click', downloadRejectedDiagrams);
+        loadSampleButton.addEventListener('click', loadSampleData);
+        clearButton.addEventListener('click', clearData);
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // Tab container event listener (delegation)
+         const tabContainer = document.querySelector('.tabs');
+         if (tabContainer) {
+             tabContainer.addEventListener('click', handleTabClick);
+         } else {
+              console.error("Tab container '.tabs' not found.");
+         }
+        
+        // Drag and drop event listeners for the dropzone
+         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+             dropzone.addEventListener(eventName, preventDefaults, false);
+             document.body.addEventListener(eventName, preventDefaults, false); // Prevent browser opening file
+         });
+         ['dragenter', 'dragover'].forEach(eventName => {
+             dropzone.addEventListener(eventName, highlight, false);
+         });
+         ['dragleave', 'drop'].forEach(eventName => {
+             dropzone.addEventListener(eventName, unhighlight, false);
+         });
+         dropzone.addEventListener('drop', handleDrop, false);
+
+         // Allow clicking the dropzone to trigger the file input
+         dropzone.addEventListener('click', () => {
+             if (fileInput) {
+                 fileInput.click();
+             } else {
+                  console.error("File input element not found.");
+             }
+         });
+
+        // --- Initial Setup ---
+         window.addEventListener('load', () => {
+             loadSampleData(); // Load sample data on page load
+             log('Application initialized successfully. Sample data loaded.', 'success');
+             loader.style.display = 'none'; // Ensure loader is hidden initially
+         });
+
+    </script>
+</body>
+</html>
