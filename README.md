@@ -28,7 +28,8 @@ The issue manifests in various critical areas:
    - **Parallel Code Generation:**
      - We process the generated questions in parallel batches (using `asyncio` and `ThreadPoolExecutor` for efficiency).
    - For each question, we feed _both_ the original documentation and the specific question back into Gemini 2.5 Pro to generate the corresponding Mermaid code.
-   - ![Methodology Diagram](images/image_workflow.png)
+   - <img src="images/image_workflow.png" alt="Methodology Diagram" width="25%">
+
 
 ## Background
 
