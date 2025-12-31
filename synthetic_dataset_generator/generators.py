@@ -13,7 +13,7 @@ from synthetic_dataset_generator.utils import call_gemini_with_retry
 def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
     """Generate questions for the given diagram type using Gemini 2.5 Pro."""
     try:
-        model = genai.GenerativeModel(GEMINI_2_5_PRO)
+        model = genai.GenerativeModel(GEMINI_2_5_PRO) # type: ignore
         prompt = QUESTION_PROMPT.format(
             diagram_type=diagram_type, doc_content=doc_content
         )
@@ -68,7 +68,7 @@ def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
 def generate_mermaid_diagram(question: str, diagram_type: str, doc_content: str) -> str:
     """Generate a Mermaid diagram using Gemini 2.5 Pro."""
     try:
-        model = genai.GenerativeModel(GEMINI_2_5_PRO)
+        model = genai.GenerativeModel(GEMINI_2_5_PRO) # type: ignore
         prompt = MERMAID_PROMPT.format(
             diagram_type=diagram_type, doc_content=doc_content, question=question
         )

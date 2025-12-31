@@ -31,7 +31,7 @@ def safe_json_loads(text: str) -> Any:
 
 
 def call_gemini_with_retry(
-    model: genai.GenerativeModel,
+    model: Any,
     prompt: str,
     generation_config: Optional[Dict[str, Any]] = None,
 ) -> Optional[Any]:
