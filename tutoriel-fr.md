@@ -120,3 +120,94 @@ Pour inspecter visuellement ce que vous allez donner à manger à l'IA.
 
 *   **Erreur API Key** : Vérifiez que la variable d'environnement `GEMINI_API_KEY` est bien définie dans votre terminal ou votre fichier `.env`.
 *   **Erreur CSP dans le navigateur** : Si le validateur ne charge pas Mermaid, vérifiez la console du navigateur (F12). Nous avons récemment ajouté des en-têtes de sécurité (CSP), assurez-vous d'utiliser la dernière version de `validator_app.html`.
+
+---
+
+## 5. Guide Technique : SDK Google Gen AI (v2.0+)
+
+Ce projet utilise la nouvelle librairie unifiée `google-genai`. Voici les concepts clés pour étendre le code.
+
+### Initialisation du Client
+
+L'ancienne méthode `genai.configure()` est obsolète. Utilisez une instance de client :
+
+```python
+from google import genai
+import os
+
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+```
+
+### Structuration des Requêtes (Contents)
+
+Le SDK convertit automatiquement vos entrées en objets `types.Content`.
+
+*   **Texte simple** : `contents='Pourquoi le ciel est bleu ?'`
+*   **Multi-tours / Chat** :
+    ```python
+    from google.genai import types
+    contents = [
+        types.Content(role='user', parts=[types.Part.from_text(text='Bonjour')]),
+        types.Content(role='model', parts=[types.Part.from_text(text='Salut !')])
+    ]
+    ```
+
+### Configuration Avancée (System Instructions & Safety)
+
+Utilisez `types.GenerateContentConfig` pour passer des instructions système ou régler la sécurité.
+
+```python
+config = types.GenerateContentConfig(
+    system_instruction='Tu es un expert en diagrammes Mermaid.',
+    temperature=0.5,
+    safety_settings=[
+        types.SafetySetting(
+            category='HARM_CATEGORY_HATE_SPEECH',
+            threshold='BLOCK_ONLY_HIGH',
+        )
+    ]
+)
+response = client.models.generate_content(model='gemini-2.0-flash', contents='...', config=config)
+```
+
+### Sortie Structurée (JSON Schema)
+
+C'est la fonctionnalité clé utilisée dans ce projet pour garantir que l'IA génère du JSON valide.
+
+```python
+# Exemple avec un schéma JSON standard
+response = client.models.generate_content(
+    model='gemini-2.0-flash',
+    contents='Génère 3 questions sur les diagrammes de séquence.',
+    config=types.GenerateContentConfig(
+        response_mime_type='application/json',
+        response_schema={
+            "type": "OBJECT",
+            "properties": {
+                "questions": {"type": "ARRAY", "items": {"type": "STRING"}}
+            }
+        }
+    ),
+)
+print(response.text) # Retourne un JSON string valide
+```
+
+### Support Pydantic
+
+Vous pouvez aussi passer directement des modèles Pydantic (non utilisé actuellement dans le code mais supporté) :
+
+```python
+from pydantic import BaseModel
+
+class DiagramRequest(BaseModel):
+    title: str
+    code: str
+
+response = client.models.generate_content(
+    ...,
+    config=types.GenerateContentConfig(
+        response_mime_type='application/json',
+        response_schema=DiagramRequest
+    )
+)
+```
