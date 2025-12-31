@@ -731,6 +731,32 @@
         }
 
         /**
+         * Escape HTML characters to prevent XSS
+         * @param {string} str - The string to escape
+         * @returns {string} Escaped string
+         */
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;',
+                '/': '&#x2F;',
+                '`': '&#x60;',
+                '=': '&#x3D;',
+                '(': '&#40;',
+                ')': '&#41;',
+                '{': '&#123;',
+                '}': '&#125;',
+                '[': '&#91;',
+                ']': '&#93;'
+            };
+            return String(str).replace(/[&<>"'`=\/(){}\[\]]/g, function(m) { return map[m]; });
+        }
+
+        /**
          * Format JSON for display
          * @param {string} json - The JSON string to format
          * @returns {string} HTML formatted JSON
@@ -741,7 +767,7 @@
             }
             
             // Escape HTML characters first
-            let escapedJson = json.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+            let escapedJson = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             
             // Apply syntax highlighting
             return escapedJson.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -1179,6 +1205,12 @@
                     content = fileContentCache;
                 }
                 
+                // Input Validation: Check content size (limit to 10MB)
+                const maxSize = 10 * 1024 * 1024; // 10 MB
+                if (content.length > maxSize) {
+                    throw new Error(`Input data too large (${formatFileSize(content.length)}). Maximum size is ${formatFileSize(maxSize)}.`);
+                }
+
                 // Extract diagrams from content
                 const diagrams = extractDiagramsFromContent(content);
                 
@@ -1358,7 +1390,7 @@
                     // Display prompt if available
                     if (diagram.prompt) {
                          const promptEl = document.createElement('p');
-                         promptEl.innerHTML = `<strong>Prompt:</strong> ${diagram.prompt}`;
+                         promptEl.innerHTML = `<strong>Prompt:</strong> ${escapeHTML(diagram.prompt)}`;
                          errorDiv.appendChild(promptEl);
                     }
                     
@@ -1373,14 +1405,14 @@
                     
                     // Display the specific validation error message
                      const errorMsgEl = document.createElement('p');
-                     errorMsgEl.innerHTML = `<strong>Validation Error:</strong> <span style="color: var(--danger-dark); font-weight: bold;">${diagram.validation_error || 'Unknown validation error'}</span>`;
+                     errorMsgEl.innerHTML = `<strong>Validation Error:</strong> <span style="color: var(--danger-dark); font-weight: bold;">${escapeHTML(diagram.validation_error) || 'Unknown validation error'}</span>`;
                      errorDiv.appendChild(errorMsgEl);
                     
                     // Display the suggested fix (if available)
                     if (diagram.error_details?.suggestion) {
                         const suggestionDiv = document.createElement('div');
                         suggestionDiv.className = 'error-suggestion'; // Existing class
-                        suggestionDiv.innerHTML = `<strong>Suggestion:</strong> ${diagram.error_details.suggestion}`;
+                        suggestionDiv.innerHTML = `<strong>Suggestion:</strong> ${escapeHTML(diagram.error_details.suggestion)}`;
                         errorDiv.appendChild(suggestionDiv);
                     }
                     

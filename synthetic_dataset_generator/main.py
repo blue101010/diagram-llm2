@@ -307,8 +307,24 @@ async def process_documentation_file(md_file: str, md_directory: str) -> List[Di
     )
 
     try:
+        # Input Validation: Check file size (limit to 5MB)
+        file_size = os.path.getsize(md_path)
+        if file_size > 5 * 1024 * 1024:  # 5MB
+            print(f"[process_documentation_file] File '{md_path}' is too large ({file_size} bytes). Skipping.")
+            return []
+        
+        if file_size == 0:
+            print(f"[process_documentation_file] File '{md_path}' is empty. Skipping.")
+            return []
+
         with open(md_path, "r", encoding="utf-8") as file:
             doc_content = file.read()
+            
+        # Input Validation: Check for empty content after read
+        if not doc_content.strip():
+             print(f"[process_documentation_file] File '{md_path}' contains only whitespace. Skipping.")
+             return []
+             
     except Exception as e:
         print(f"[process_documentation_file] Error reading file '{md_path}': {e}")
         traceback.print_exc()
