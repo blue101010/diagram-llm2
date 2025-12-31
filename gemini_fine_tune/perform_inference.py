@@ -2,11 +2,23 @@ import os
 import json
 import time
 import random
+import logging
 import google.generativeai as genai
 from google import genai as vertex_genai
 from google.genai import types
 from typing import Dict, List, Any
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("inference.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -104,11 +116,11 @@ def generate_fine_tuned_response(prompt: str) -> str:
 
         except Exception as e:
             if attempt == MAX_RETRIES - 1:
-                print(f"Error generating response from fine-tuned model after {MAX_RETRIES} attempts: {e}")
+                logger.error(f"Error generating response from fine-tuned model after {MAX_RETRIES} attempts: {e}")
                 return f"Error: {str(e)}"
             
             delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-            print(f"API Error: {e}. Retrying in {delay:.2f}s...")
+            logger.warning(f"API Error: {e}. Retrying in {delay:.2f}s...")
             time.sleep(delay)
     
     return "Error: Max retries exceeded"
@@ -131,9 +143,9 @@ def main():
     setup()
 
     # Load validation data
-    print(f"Loading validation data from {VALIDATION_DATA_FILE}...")
+    logger.info(f"Loading validation data from {VALIDATION_DATA_FILE}...")
     validation_data = load_validation_data(VALIDATION_DATA_FILE)
-    print(f"Loaded {len(validation_data)} validation examples.")
+    logger.info(f"Loaded {len(validation_data)} validation examples.")
 
     # Load existing results if available to resume progress
     all_results = []
@@ -141,14 +153,14 @@ def main():
         try:
             with open(RAW_OUTPUT_FILE, "r") as f:
                 all_results = json.load(f)
-            print(f"Resuming from {len(all_results)} existing results.")
+            logger.info(f"Resuming from {len(all_results)} existing results.")
         except json.JSONDecodeError:
-            print("Could not load existing results, starting fresh.")
+            logger.warning("Could not load existing results, starting fresh.")
 
     start_index = len(all_results)
 
     for i, example in enumerate(validation_data[start_index:], start=start_index):
-        print(f"\nProcessing example {i+1}/{len(validation_data)}...")
+        logger.info(f"Processing example {i+1}/{len(validation_data)}...")
 
         # Extract prompt and system instruction
         system_instruction = example["systemInstruction"]["parts"][0]["text"]
@@ -158,7 +170,7 @@ def main():
         result = {"prompt": prompt, "expected_output": expected_output, "models": {}}
 
         # Generate response from base model
-        print(f"Generating response from {BASE_MODEL}...")
+        logger.info(f"Generating response from {BASE_MODEL}...")
         base_response = generate_base_model_response(prompt, system_instruction)
         base_clean = extract_mermaid_code(base_response)
 
@@ -168,7 +180,7 @@ def main():
         }
 
         # Generate response from fine-tuned model
-        print(f"Generating response from fine-tuned model...")
+        logger.info(f"Generating response from fine-tuned model...")
         ft_response = generate_fine_tuned_response(prompt)
         ft_clean = extract_mermaid_code(ft_response)
         
@@ -181,7 +193,7 @@ def main():
 
         # Save progress incrementally (every 5 items or at the end)
         if (i + 1) % 5 == 0 or (i + 1) == len(validation_data):
-            print(f"Saving progress to {RAW_OUTPUT_FILE}...")
+            logger.info(f"Saving progress to {RAW_OUTPUT_FILE}...")
             with open(RAW_OUTPUT_FILE, "w") as f:
                 json.dump(all_results, f, indent=2)
 
@@ -203,7 +215,7 @@ def main():
     with open(CLEAN_OUTPUT_FILE, "w") as f:
         json.dump(clean_results, f, indent=2)
 
-    print(f"\nAll results saved to {RAW_OUTPUT_FILE} and {CLEAN_OUTPUT_FILE}")
+    logger.info(f"All results saved to {RAW_OUTPUT_FILE} and {CLEAN_OUTPUT_FILE}")
 
 
 if __name__ == "__main__":

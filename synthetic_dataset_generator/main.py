@@ -5,6 +5,7 @@ import traceback
 import re
 import time
 import random
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Any, List, Dict, Optional
@@ -12,6 +13,17 @@ from typing import Any, List, Dict, Optional
 import google.generativeai as genai
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("dataset_generation.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -123,8 +135,7 @@ def safe_json_loads(text: str) -> Any:
             try:
                 return json.loads(match.group())
             except json.JSONDecodeError as e:
-                print(f"[safe_json_loads] Regex extraction failed: {e}")
-                traceback.print_exc()
+                logger.error(f"[safe_json_loads] Regex extraction failed: {e}", exc_info=True)
                 raise
         else:
             raise
@@ -137,11 +148,11 @@ def call_gemini_with_retry(model, prompt, generation_config):
             return model.generate_content(prompt, generation_config=generation_config)
         except Exception as e:
             if attempt == MAX_RETRIES - 1:
-                print(f"[call_gemini_with_retry] Failed after {MAX_RETRIES} attempts: {e}")
+                logger.error(f"[call_gemini_with_retry] Failed after {MAX_RETRIES} attempts: {e}")
                 raise e
             
             delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-            print(f"[call_gemini_with_retry] API Error: {e}. Retrying in {delay:.2f}s...")
+            logger.warning(f"[call_gemini_with_retry] API Error: {e}. Retrying in {delay:.2f}s...")
             time.sleep(delay)
 
 
@@ -169,7 +180,7 @@ def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
         )
 
         if not response:
-            print(
+            logger.warning(
                 f"[generate_questions] Gemini did not return any response for diagram type: {diagram_type}"
             )
             return []
@@ -181,23 +192,22 @@ def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
                 json_output["questions"], list
             ):
                 questions = json_output["questions"]
-                print(
+                logger.info(
                     f"[generate_questions] Successfully generated {len(questions)} questions"
                 )
                 return questions
             else:
-                print(
+                logger.warning(
                     f"[generate_questions] Response missing questions array: {response.text}"
                 )
                 return []
         except json.JSONDecodeError as e:
-            print(f"[generate_questions] Error parsing response JSON: {e}")
-            print(f"Response text: {response.text}")
+            logger.error(f"[generate_questions] Error parsing response JSON: {e}")
+            logger.debug(f"Response text: {response.text}")
             return []
 
     except Exception as e:
-        print(f"[generate_questions] Error generating questions with Gemini: {e}")
-        traceback.print_exc()
+        logger.error(f"[generate_questions] Error generating questions with Gemini: {e}", exc_info=True)
         return []
 
 
@@ -223,7 +233,7 @@ def generate_mermaid_diagram(question: str, diagram_type: str, doc_content: str)
         )
 
         if not response:
-            print(
+            logger.warning(
                 f"[generate_mermaid_diagram] Gemini did not return any response for question: {question}"
             )
             return ""
@@ -235,20 +245,19 @@ def generate_mermaid_diagram(question: str, diagram_type: str, doc_content: str)
                 mermaid_code = json_output["mermaid_diagram"].strip()
                 return mermaid_code
             else:
-                print(
+                logger.warning(
                     f"[generate_mermaid_diagram] Response missing mermaid_diagram: {response.text}"
                 )
                 return ""
         except json.JSONDecodeError as e:
-            print(f"[generate_mermaid_diagram] Error parsing response JSON: {e}")
-            print(f"Response text: {response.text}")
+            logger.error(f"[generate_mermaid_diagram] Error parsing response JSON: {e}")
+            logger.debug(f"Response text: {response.text}")
             return ""
 
     except Exception as e:
-        print(
-            f"[generate_mermaid_diagram] Error generating Mermaid diagram with Gemini: {e}"
+        logger.error(
+            f"[generate_mermaid_diagram] Error generating Mermaid diagram with Gemini: {e}", exc_info=True
         )
-        traceback.print_exc()
         return ""
 
 
@@ -287,7 +296,7 @@ async def process_question_batch(
             # Append to the output file immediately
             append_to_output_file(entry)
 
-            print(f"[process_question_batch] Generated diagram for: {question[:50]}...")
+            logger.info(f"[process_question_batch] Generated diagram for: {question[:50]}...")
 
     return results
 
@@ -302,7 +311,7 @@ def append_to_output_file(entry: Dict):
                 try:
                     existing_data = json.load(f)
                 except json.JSONDecodeError:
-                    print(
+                    logger.warning(
                         f"[append_to_output_file] Error parsing {OUTPUT_FILE}, starting fresh"
                     )
                     existing_data = []
@@ -315,15 +324,14 @@ def append_to_output_file(entry: Dict):
             json.dump(existing_data, f, indent=2)
 
     except Exception as e:
-        print(f"[append_to_output_file] Error updating output file: {e}")
-        traceback.print_exc()
+        logger.error(f"[append_to_output_file] Error updating output file: {e}", exc_info=True)
 
 
 async def process_documentation_file(md_file: str, md_directory: str) -> List[Dict]:
     """Process a single documentation file to generate questions and diagrams."""
     diagram_type = os.path.splitext(md_file)[0]
     md_path = os.path.join(md_directory, md_file)
-    print(
+    logger.info(
         f"\n[process_documentation_file] Processing documentation for diagram type: {diagram_type}"
     )
 
@@ -331,11 +339,11 @@ async def process_documentation_file(md_file: str, md_directory: str) -> List[Di
         # Input Validation: Check file size (limit to 5MB)
         file_size = os.path.getsize(md_path)
         if file_size > 5 * 1024 * 1024:  # 5MB
-            print(f"[process_documentation_file] File '{md_path}' is too large ({file_size} bytes). Skipping.")
+            logger.warning(f"[process_documentation_file] File '{md_path}' is too large ({file_size} bytes). Skipping.")
             return []
         
         if file_size == 0:
-            print(f"[process_documentation_file] File '{md_path}' is empty. Skipping.")
+            logger.warning(f"[process_documentation_file] File '{md_path}' is empty. Skipping.")
             return []
 
         with open(md_path, "r", encoding="utf-8") as file:
@@ -343,23 +351,22 @@ async def process_documentation_file(md_file: str, md_directory: str) -> List[Di
             
         # Input Validation: Check for empty content after read
         if not doc_content.strip():
-             print(f"[process_documentation_file] File '{md_path}' contains only whitespace. Skipping.")
+             logger.warning(f"[process_documentation_file] File '{md_path}' contains only whitespace. Skipping.")
              return []
              
     except Exception as e:
-        print(f"[process_documentation_file] Error reading file '{md_path}': {e}")
-        traceback.print_exc()
+        logger.error(f"[process_documentation_file] Error reading file '{md_path}': {e}", exc_info=True)
         return []
 
     # Step 1: Generate questions using Gemini 2.5 Pro
     questions = generate_questions(diagram_type, doc_content)
     if not questions:
-        print(
+        logger.warning(
             f"[process_documentation_file] Could not generate questions for '{diagram_type}'. Skipping."
         )
         return []
 
-    print(
+    logger.info(
         f"[process_documentation_file] Generated {len(questions)} questions for diagram type '{diagram_type}'."
     )
 
@@ -369,7 +376,7 @@ async def process_documentation_file(md_file: str, md_directory: str) -> List[Di
 
     for i in range(0, len(questions), batch_size):
         batch = questions[i : i + batch_size]
-        print(
+        logger.info(
             f"[process_documentation_file] Processing batch {i//batch_size + 1}/{(len(questions) + batch_size - 1)//batch_size}"
         )
 
@@ -394,10 +401,10 @@ async def main():
     if not os.path.exists(OUTPUT_FILE):
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump([], f)
-        print(f"[main] Initialized output file at {OUTPUT_FILE}")
+        logger.info(f"[main] Initialized output file at {OUTPUT_FILE}")
 
     if not os.path.exists(md_directory):
-        print(
+        logger.error(
             f"[main] The directory '{md_directory}' does not exist. Please create it and add your markdown documentation files."
         )
         return
@@ -405,18 +412,17 @@ async def main():
     try:
         md_files = [f for f in os.listdir(md_directory) if f.endswith(".md")]
     except Exception as e:
-        print(f"[main] Error reading directory '{md_directory}': {e}")
-        traceback.print_exc()
+        logger.error(f"[main] Error reading directory '{md_directory}': {e}", exc_info=True)
         return
 
     if not md_files:
-        print(f"[main] No markdown files found in '{md_directory}'.")
+        logger.warning(f"[main] No markdown files found in '{md_directory}'.")
         return
 
-    print(
+    logger.info(
         f"[main] Starting mermaid diagram generation. Results will be saved to {OUTPUT_FILE}"
     )
-    print(
+    logger.info(
         f"[main] To view results in a web browser, run 'python webapp_server.py' in a separate terminal"
     )
 
@@ -424,16 +430,15 @@ async def main():
         results = await process_documentation_file(md_file, md_directory)
         dataset.extend(results)
 
-    print("\n[main] Generation complete.")
-    print(f"[main] Generated a total of {len(dataset)} entries.")
-    print(f"[main] All results saved to {OUTPUT_FILE}")
+    logger.info("\n[main] Generation complete.")
+    logger.info(f"[main] Generated a total of {len(dataset)} entries.")
+    logger.info(f"[main] All results saved to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n[main] Keyboard interrupt received. Shutting down.")
+        logger.info("\n[main] Keyboard interrupt received. Shutting down.")
     except Exception as e:
-        print(f"[main] Error in main function: {e}")
-        traceback.print_exc()
+        logger.critical(f"[main] Error in main function: {e}", exc_info=True)

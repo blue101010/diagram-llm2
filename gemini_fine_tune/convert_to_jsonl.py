@@ -1,6 +1,17 @@
 import json
 import re
 import random
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 # Function to remove leading numbers (like "1. " or "71. ") from prompts
@@ -28,41 +39,48 @@ def to_fine_tuning_format(entry):
         ],
     }
 
+try:
+    # Load the main dataset
+    with open("FINAL_DATASET_MAIN(1).json", "r") as f:
+        main_data = json.load(f)
 
-# Load the main dataset
-with open("FINAL_DATASET_MAIN(1).json", "r") as f:
-    main_data = json.load(f)
+    # Load the side dataset for validation
+    with open("side_dataset.json", "r") as f:
+        side_data = json.load(f)
 
-# Load the side dataset for validation
-with open("side_dataset.json", "r") as f:
-    side_data = json.load(f)
+    # Select 150 random entries from the side dataset for validation
+    random.seed(42)  # For reproducibility
+    validation_data = random.sample(side_data, 150)
 
-# Select 150 random entries from the side dataset for validation
-random.seed(42)  # For reproducibility
-validation_data = random.sample(side_data, 150)
+    # Convert all data to the fine-tuning format
+    main_data_formatted = [to_fine_tuning_format(entry) for entry in main_data]
+    validation_data_formatted = [to_fine_tuning_format(entry) for entry in validation_data]
 
-# Convert all data to the fine-tuning format
-main_data_formatted = [to_fine_tuning_format(entry) for entry in main_data]
-validation_data_formatted = [to_fine_tuning_format(entry) for entry in validation_data]
+    # Shuffle both datasets to avoid any sequence-related biases
+    random.shuffle(main_data_formatted)
+    random.shuffle(validation_data_formatted)
 
-# Shuffle both datasets to avoid any sequence-related biases
-random.shuffle(main_data_formatted)
-random.shuffle(validation_data_formatted)
+    # Write the training data to a JSONL file
+    with open("training_data.jsonl", "w") as f:
+        for entry in main_data_formatted:
+            f.write(json.dumps(entry) + "\n")
 
-# Write the training data to a JSONL file
-with open("training_data.jsonl", "w") as f:
-    for entry in main_data_formatted:
-        f.write(json.dumps(entry) + "\n")
+    # Write the validation data to a JSONL file
+    with open("validation_data.jsonl", "w") as f:
+        for entry in validation_data_formatted:
+            f.write(json.dumps(entry) + "\n")
 
-# Write the validation data to a JSONL file
-with open("validation_data.jsonl", "w") as f:
-    for entry in validation_data_formatted:
-        f.write(json.dumps(entry) + "\n")
+    logger.info(f"Conversion complete!")
+    logger.info(
+        f"Training data: {len(main_data_formatted)} examples written to training_data.jsonl"
+    )
+    logger.info(
+        f"Validation data: {len(validation_data_formatted)} examples written to validation_data.jsonl"
+    )
 
-print(f"Conversion complete!")
-print(
-    f"Training data: {len(main_data_formatted)} examples written to training_data.jsonl"
-)
-print(
-    f"Validation data: {len(validation_data_formatted)} examples written to validation_data.jsonl"
-)
+except FileNotFoundError as e:
+    logger.error(f"File not found: {e}")
+except json.JSONDecodeError as e:
+    logger.error(f"Error decoding JSON: {e}")
+except Exception as e:
+    logger.error(f"An unexpected error occurred: {e}", exc_info=True)
