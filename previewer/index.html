@@ -2,6 +2,8 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-97PaJ1OyKbr/OfqWV+CFOOIDwUeGDpUmOVOpQiKI1A8=' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net;">
+    <!-- Note: SRI is not used for cdn.jsdelivr.net imports because they use the +esm dynamic bundler which is not compatible with static SRI hashes. -->
     <title>Mermaid Diagrams Viewer</title>
     <style>
       body {

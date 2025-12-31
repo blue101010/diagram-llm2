@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-+xbn1CNsyYO4pXY2RLmklZVv4i7XmmBSw46sw+MF6pI=' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net;">
+    <!-- Note: SRI is not used for cdn.jsdelivr.net imports because they use the +esm dynamic bundler which is not compatible with static SRI hashes. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Optimized Mermaid Diagram Processor</title>
     <!-- MERMAID SCRIPT REMOVED FROM HERE - It will be loaded via ES Module below -->
