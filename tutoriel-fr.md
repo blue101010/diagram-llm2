@@ -81,6 +81,23 @@ Nous allons générer un petit lot de données pour tester.
 
 Les LLM font des erreurs. Nous devons filtrer le code Mermaid invalide.
 
+> **Exemple d'erreur courante (Architecture Beta) :**
+> Il est normal de rencontrer des erreurs de syntaxe, notamment sur les fonctionnalités expérimentales.
+>
+> *   **Code généré** :
+>     ```mermaid
+>     architecture-beta
+>         service api(server)[API Gateway]
+>         service auth(server)[Auth Service]
+>         service users(database)[User DB]
+>
+>         api:B -- T:auth
+>         api:R -- L:users
+>     ```
+> *   **Erreur** : `Syntax error in text`
+>
+> Le validateur détectera et exclura automatiquement ces cas du jeu de données final.
+
 1.  Ouvrez le fichier `validator/validator_app.html` dans votre navigateur (double-cliquez dessus ou faites un glisser-déposer).
 2.  **Chargement** : Cliquez sur le bouton pour charger un fichier ou glissez le fichier JSON généré à l'étape 2 dans la zone dédiée.
 3.  **Traitement** : Cliquez sur **"Process Diagrams"**.

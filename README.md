@@ -1,6 +1,11 @@
 # Making LLMs generate accurate diagrams
 
+## Fork acknowlegement credit
+
+Fork from yashrathi-git/diagram-llm with updates.
+
 A research project on generation of diagrams via LLMs.
+
 ## Novel Aspects
 
 - We created a completely novel synthetic dataset for prompt -> mermaid diagram pairs for fine-tuning.
