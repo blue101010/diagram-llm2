@@ -71,16 +71,16 @@ def generate_fine_tuned_response(prompt: str) -> str:
             ),
             safety_settings=[
                 types.SafetySetting(
-                    category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"
+                    category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"
                 ),
                 types.SafetySetting(
-                    category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"
+                    category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
                 ),
                 types.SafetySetting(
-                    category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"
+                    category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_MEDIUM_AND_ABOVE"
                 ),
                 types.SafetySetting(
-                    category="HARM_CATEGORY_HARASSMENT", threshold="OFF"
+                    category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
                 ),
             ],
         )
