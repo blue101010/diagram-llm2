@@ -1,6 +1,8 @@
 import json
+import os
 from typing import List
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from synthetic_dataset_generator.config import (
     logger,
@@ -13,24 +15,25 @@ from synthetic_dataset_generator.utils import call_gemini_with_retry
 def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
     """Generate questions for the given diagram type using Gemini 2.5 Pro."""
     try:
-        model = genai.GenerativeModel(GEMINI_2_5_PRO) # type: ignore
+        client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
         prompt = QUESTION_PROMPT.format(
             diagram_type=diagram_type, doc_content=doc_content
         )
 
         response = call_gemini_with_retry(
-            model,
+            client,
+            GEMINI_2_5_PRO,
             prompt,
-            generation_config={
-                "response_mime_type": "application/json",
-                "response_schema": {
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema={
                     "type": "OBJECT",
                     "properties": {
                         "questions": {"type": "ARRAY", "items": {"type": "STRING"}}
                     },
                     "required": ["questions"],
                 },
-            },
+            ),
         )
 
         if not response:
@@ -68,22 +71,23 @@ def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
 def generate_mermaid_diagram(question: str, diagram_type: str, doc_content: str) -> str:
     """Generate a Mermaid diagram using Gemini 2.5 Pro."""
     try:
-        model = genai.GenerativeModel(GEMINI_2_5_PRO) # type: ignore
+        client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
         prompt = MERMAID_PROMPT.format(
             diagram_type=diagram_type, doc_content=doc_content, question=question
         )
 
         response = call_gemini_with_retry(
-            model,
+            client,
+            GEMINI_2_5_PRO,
             prompt,
-            generation_config={
-                "response_mime_type": "application/json",
-                "response_schema": {
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema={
                     "type": "OBJECT",
                     "properties": {"mermaid_diagram": {"type": "STRING"}},
                     "required": ["mermaid_diagram"],
                 },
-            },
+            ),
         )
 
         if not response:

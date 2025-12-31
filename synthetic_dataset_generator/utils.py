@@ -4,7 +4,7 @@ import time
 import random
 import os
 from typing import Any, Dict, Optional
-import google.generativeai as genai
+from google import genai
 
 from synthetic_dataset_generator.config import (
     logger,
@@ -31,14 +31,19 @@ def safe_json_loads(text: str) -> Any:
 
 
 def call_gemini_with_retry(
-    model: Any,
+    client: genai.Client,
+    model_id: str,
     prompt: str,
-    generation_config: Optional[Dict[str, Any]] = None,
+    config: Optional[Any] = None,
 ) -> Optional[Any]:
     """Call Gemini API with exponential backoff retry logic."""
     for attempt in range(MAX_RETRIES):
         try:
-            return model.generate_content(prompt, generation_config=generation_config)
+            return client.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=config
+            )
         except Exception as e:
             if attempt == MAX_RETRIES - 1:
                 logger.error(f"[call_gemini_with_retry] Failed after {MAX_RETRIES} attempts: {e}")

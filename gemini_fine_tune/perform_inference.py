@@ -3,8 +3,7 @@ import json
 import time
 import random
 import logging
-import google.generativeai as genai
-from google import genai as vertex_genai
+from google import genai
 from google.genai import types
 from typing import Dict, List, Any
 from dotenv import load_dotenv
@@ -42,8 +41,6 @@ INITIAL_BACKOFF = 2.0
 
 def setup() -> None:
     """Initialize the environment."""
-    genai.configure(api_key=API_KEY)
-
     # Create output directory if it doesn't exist
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
@@ -61,12 +58,39 @@ def load_validation_data(file_path: str) -> List[Dict[str, Any]]:
 
 def generate_base_model_response(prompt: str, system_instruction: str) -> str:
     """Generate a response from the base model."""
-    return ""
+    client = genai.Client(api_key=API_KEY)
+    
+    config = types.GenerateContentConfig(
+        temperature=1,
+        top_p=0.95,
+        max_output_tokens=8192,
+        response_modalities=["TEXT"],
+        system_instruction=system_instruction
+    )
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = client.models.generate_content(
+                model=BASE_MODEL,
+                contents=prompt,
+                config=config
+            )
+            return response.text
+        except Exception as e:
+            if attempt == MAX_RETRIES - 1:
+                logger.error(f"Error generating response from base model after {MAX_RETRIES} attempts: {e}")
+                return f"Error: {str(e)}"
+            
+            delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+            logger.warning(f"Base Model API Error: {e}. Retrying in {delay:.2f}s...")
+            time.sleep(delay)
+    
+    return "Error: Max retries exceeded"
 
 
 def generate_fine_tuned_response(prompt: str) -> str:
     """Generate a response from the fine-tuned model using Vertex AI with retry logic."""
-    client = vertex_genai.Client(
+    client = genai.Client(
         vertexai=True,
         project=VERTEX_PROJECT_ID,
         location=VERTEX_LOCATION,

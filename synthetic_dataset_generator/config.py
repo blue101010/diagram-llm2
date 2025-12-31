@@ -3,13 +3,9 @@ import logging
 from typing import List
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
-
-# Configure Google Generative AI with API key
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Configure logging
 logging.basicConfig(
