@@ -4,13 +4,18 @@ import google.generativeai as genai
 from google import genai as vertex_genai
 from google.genai import types
 from typing import Dict, List, Any
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Constants
-API_KEY = ""  # For the base model
+API_KEY = os.getenv("GOOGLE_API_KEY")  # For the base model
 BASE_MODEL = "gemini-2.0-flash-001"
-FINE_TUNED_MODEL_ID = (
-    "projects/1091107469352/locations/us-central1/endpoints/613585762415280128"
-)
+FINE_TUNED_MODEL_ID = os.getenv("FINE_TUNED_MODEL_ID")
+VERTEX_PROJECT_ID = os.getenv("VERTEX_PROJECT_ID")
+VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "us-central1")
+
 OUTPUT_DIR = "outputs"
 RAW_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "raw_responses.json")
 CLEAN_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "clean_responses.json")
@@ -46,8 +51,8 @@ def generate_fine_tuned_response(prompt: str) -> str:
     try:
         client = vertex_genai.Client(
             vertexai=True,
-            project="1091107469352",
-            location="us-central1",
+            project=VERTEX_PROJECT_ID,
+            location=VERTEX_LOCATION,
         )
 
         contents = [
