@@ -40,7 +40,7 @@ MAX_RETRIES = 5
 INITIAL_BACKOFF = 2.0
 
 
-def setup():
+def setup() -> None:
     """Initialize the environment."""
     genai.configure(api_key=API_KEY)
 
@@ -49,7 +49,7 @@ def setup():
         os.makedirs(OUTPUT_DIR)
 
 
-def load_validation_data(file_path: str) -> List[Dict]:
+def load_validation_data(file_path: str) -> List[Dict[str, Any]]:
     """Load validation data from JSONL file."""
     data = []
     with open(file_path, "r") as f:
@@ -138,7 +138,7 @@ def extract_mermaid_code(response: str) -> str:
     return response.strip()
 
 
-def main():
+def main() -> None:
     """Main execution function."""
     setup()
 

@@ -2,6 +2,7 @@ import json
 import re
 import random
 import logging
+from typing import Dict, Any
 
 # Configure logging
 logging.basicConfig(
@@ -15,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 # Function to remove leading numbers (like "1. " or "71. ") from prompts
-def clean_prompt(prompt):
+def clean_prompt(prompt: str) -> str:
     return re.sub(r"^\d+\.\s+", "", prompt)
 
 
 # Function to convert a dictionary to the Gemini fine-tuning format
-def to_fine_tuning_format(entry):
+def to_fine_tuning_format(entry: Dict[str, Any]) -> Dict[str, Any]:
     clean_prompt_text = clean_prompt(entry["prompt"])
     output_text = entry["output"]
 

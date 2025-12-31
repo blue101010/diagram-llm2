@@ -2,15 +2,18 @@
 
 A research project on generation of diagrams via LLMs.
 ## Novel Aspects
+
 - We created a completely novel synthetic dataset for prompt -> mermaid diagram pairs for fine-tuning.
 - Achieved a performance boost of 82% after fine-tuning.
 - Currently only very few SOTA models like Claude Sonnet, GPT-5, Gemini 2.5 Pro are able to generate accurate diagrams. Smaller and cheaper model generally fails to creatve valid or good quality diagrams.
 - The novel dataset from this research could be taken to fine-tune smaller LLMs like Phi-4 for accurate diagram generation.
 
-#### Sample from the generated synthetic dataset
+### Sample from the generated synthetic dataset
+
 <img width="1017" height="469" alt="image" src="https://github.com/user-attachments/assets/d0e3b4a0-954e-4eda-9532-7abce87a45b8" />
 
 #### Response of fine tuned model compared with Base model
+
 <img width="1355" height="776" alt="image" src="https://github.com/user-attachments/assets/8ab2e8ac-f7cf-4f00-9a7f-7a9027e5c3c8" />
 
 ## Project Structure
@@ -41,17 +44,17 @@ A research project on generation of diagrams via LLMs.
 - Gemini model showed the best results
 - Contains inference scripts for model evaluation
 
-
 ## Samples from dataset
 
 Question
 
-```
+```text
 Generate a Kanban diagram with columns 'To Do' (id: c1), 'Doing' (id: c2), 'Code Review' (id: c3), and 'Deployed' (id: c4). Add 'Fix Bug #123' (id: bug123) to 'Doing'. Add 'Review Pull Request #45' (id: pr45) to 'Code Review'. Add 'Deploy Version 2.1' (id: deploy21) to 'Deployed'.
 ```
 
 Answer
-```
+
+```text
 kanban c1[To Do]
 
 c2[Doing] bug123[Fix Bug #123]

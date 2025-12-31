@@ -141,7 +141,11 @@ def safe_json_loads(text: str) -> Any:
             raise
 
 
-def call_gemini_with_retry(model, prompt, generation_config):
+def call_gemini_with_retry(
+    model: genai.GenerativeModel,
+    prompt: str,
+    generation_config: Optional[Dict[str, Any]] = None,
+) -> Optional[Any]:
     """Call Gemini API with exponential backoff retry logic."""
     for attempt in range(MAX_RETRIES):
         try:
@@ -263,7 +267,7 @@ def generate_mermaid_diagram(question: str, diagram_type: str, doc_content: str)
 
 async def process_question_batch(
     questions: List[str], diagram_type: str, doc_content: str
-) -> List[Dict]:
+) -> List[Dict[str, str]]:
     """Process a batch of questions in parallel using ThreadPoolExecutor."""
     results = []
 
@@ -301,7 +305,7 @@ async def process_question_batch(
     return results
 
 
-def append_to_output_file(entry: Dict):
+def append_to_output_file(entry: Dict[str, str]) -> None:
     """Append a single entry to the output file."""
     try:
         # Read existing data
@@ -327,7 +331,7 @@ def append_to_output_file(entry: Dict):
         logger.error(f"[append_to_output_file] Error updating output file: {e}", exc_info=True)
 
 
-async def process_documentation_file(md_file: str, md_directory: str) -> List[Dict]:
+async def process_documentation_file(md_file: str, md_directory: str) -> List[Dict[str, str]]:
     """Process a single documentation file to generate questions and diagrams."""
     diagram_type = os.path.splitext(md_file)[0]
     md_path = os.path.join(md_directory, md_file)
@@ -392,7 +396,7 @@ async def process_documentation_file(md_file: str, md_directory: str) -> List[Di
 # ------------------ MAIN FUNCTION ------------------
 
 
-async def main():
+async def main() -> None:
     """Main function to process all documentation files."""
     dataset = []
     md_directory = "md"
