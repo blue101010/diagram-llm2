@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import random
 import google.generativeai as genai
 from google import genai as vertex_genai
 from google.genai import types
@@ -20,6 +22,10 @@ OUTPUT_DIR = "outputs"
 RAW_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "raw_responses.json")
 CLEAN_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "clean_responses.json")
 VALIDATION_DATA_FILE = "validation_data.jsonl"
+
+# Retry Configuration
+MAX_RETRIES = 5
+INITIAL_BACKOFF = 2.0
 
 
 def setup():
@@ -47,57 +53,65 @@ def generate_base_model_response(prompt: str, system_instruction: str) -> str:
 
 
 def generate_fine_tuned_response(prompt: str) -> str:
-    """Generate a response from the fine-tuned model using Vertex AI."""
-    try:
-        client = vertex_genai.Client(
-            vertexai=True,
-            project=VERTEX_PROJECT_ID,
-            location=VERTEX_LOCATION,
-        )
+    """Generate a response from the fine-tuned model using Vertex AI with retry logic."""
+    client = vertex_genai.Client(
+        vertexai=True,
+        project=VERTEX_PROJECT_ID,
+        location=VERTEX_LOCATION,
+    )
 
-        contents = [
-            types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
-        ]
+    contents = [
+        types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
+    ]
 
-        generate_content_config = types.GenerateContentConfig(
-            temperature=1,
-            top_p=0.95,
-            max_output_tokens=8192,
-            response_modalities=["TEXT"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="zephyr")
-                ),
+    generate_content_config = types.GenerateContentConfig(
+        temperature=1,
+        top_p=0.95,
+        max_output_tokens=8192,
+        response_modalities=["TEXT"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="zephyr")
             ),
-            safety_settings=[
-                types.SafetySetting(
-                    category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"
-                ),
-                types.SafetySetting(
-                    category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
-                ),
-                types.SafetySetting(
-                    category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_MEDIUM_AND_ABOVE"
-                ),
-                types.SafetySetting(
-                    category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
-                ),
-            ],
-        )
+        ),
+        safety_settings=[
+            types.SafetySetting(
+                category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_MEDIUM_AND_ABOVE"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
+            ),
+        ],
+    )
 
-        response = ""
-        for chunk in client.models.generate_content_stream(
-            model=FINE_TUNED_MODEL_ID,
-            contents=contents,
-            config=generate_content_config,
-        ):
-            if chunk.text:
-                response += chunk.text
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = ""
+            for chunk in client.models.generate_content_stream(
+                model=FINE_TUNED_MODEL_ID,
+                contents=contents,
+                config=generate_content_config,
+            ):
+                if chunk.text:
+                    response += chunk.text
+            return response
 
-        return response
-    except Exception as e:
-        print(f"Error generating response from fine-tuned model: {e}")
-        return f"Error: {str(e)}"
+        except Exception as e:
+            if attempt == MAX_RETRIES - 1:
+                print(f"Error generating response from fine-tuned model after {MAX_RETRIES} attempts: {e}")
+                return f"Error: {str(e)}"
+            
+            delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+            print(f"API Error: {e}. Retrying in {delay:.2f}s...")
+            time.sleep(delay)
+    
+    return "Error: Max retries exceeded"
 
 
 def extract_mermaid_code(response: str) -> str:
@@ -121,9 +135,19 @@ def main():
     validation_data = load_validation_data(VALIDATION_DATA_FILE)
     print(f"Loaded {len(validation_data)} validation examples.")
 
+    # Load existing results if available to resume progress
     all_results = []
+    if os.path.exists(RAW_OUTPUT_FILE):
+        try:
+            with open(RAW_OUTPUT_FILE, "r") as f:
+                all_results = json.load(f)
+            print(f"Resuming from {len(all_results)} existing results.")
+        except json.JSONDecodeError:
+            print("Could not load existing results, starting fresh.")
 
-    for i, example in enumerate(validation_data):
+    start_index = len(all_results)
+
+    for i, example in enumerate(validation_data[start_index:], start=start_index):
         print(f"\nProcessing example {i+1}/{len(validation_data)}...")
 
         # Extract prompt and system instruction
@@ -144,12 +168,10 @@ def main():
         }
 
         # Generate response from fine-tuned model
-        # print(f"Generating response from fine-tuned model...")
-        # ft_response = generate_fine_tuned_response(prompt)
-        # ft_clean = extract_mermaid_code(ft_response)
-        # print(ft_clean)
-        ft_response = ""
-        ft_clean = ""
+        print(f"Generating response from fine-tuned model...")
+        ft_response = generate_fine_tuned_response(prompt)
+        ft_clean = extract_mermaid_code(ft_response)
+        
         result["models"]["fine-tuned"] = {
             "raw_response": ft_response,
             "clean_mermaid": ft_clean,
@@ -157,9 +179,13 @@ def main():
 
         all_results.append(result)
 
-    # Save raw responses
-    with open(RAW_OUTPUT_FILE, "w") as f:
-        json.dump(all_results, f, indent=2)
+        # Save progress incrementally (every 5 items or at the end)
+        if (i + 1) % 5 == 0 or (i + 1) == len(validation_data):
+            print(f"Saving progress to {RAW_OUTPUT_FILE}...")
+            with open(RAW_OUTPUT_FILE, "w") as f:
+                json.dump(all_results, f, indent=2)
+
+    # Save clean responses (just the extracted mermaid code)
 
     # Save clean responses (just the extracted mermaid code)
     clean_results = []
