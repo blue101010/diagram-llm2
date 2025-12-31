@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 import json
 import traceback
 import re
+import time
+import random
 from typing import Any, List, Optional
 
 # Load environment variables from .env file
@@ -24,6 +26,11 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Model identifiers
 GEMINI_2_5_PRO = "gemini-2.5-pro-preview-03-25"
+
+# API Rate Limiting
+MAX_WORKERS = 3  
+MAX_RETRIES = 5
+INITIAL_BACKOFF = 2.0  # Seconds
 
 # File to save all generated questions and diagrams
 OUTPUT_FILE = "generated_questions.json"
@@ -126,6 +133,21 @@ def safe_json_loads(text: str) -> Any:
             raise
 
 
+def call_gemini_with_retry(model, prompt, generation_config):
+    """Call Gemini API with exponential backoff retry logic."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            return model.generate_content(prompt, generation_config=generation_config)
+        except Exception as e:
+            if attempt == MAX_RETRIES - 1:
+                print(f"[call_gemini_with_retry] Failed after {MAX_RETRIES} attempts: {e}")
+                raise e
+            
+            delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+            print(f"[call_gemini_with_retry] API Error: {e}. Retrying in {delay:.2f}s...")
+            time.sleep(delay)
+
+
 def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
     """Generate questions for the given diagram type using Gemini 2.5 Pro."""
     try:
@@ -134,7 +156,8 @@ def generate_questions(diagram_type: str, doc_content: str) -> List[str]:
             diagram_type=diagram_type, doc_content=doc_content
         )
 
-        response = model.generate_content(
+        response = call_gemini_with_retry(
+            model,
             prompt,
             generation_config={
                 "response_mime_type": "application/json",
@@ -189,7 +212,8 @@ def generate_mermaid_diagram(question: str, diagram_type: str, doc_content: str)
             diagram_type=diagram_type, doc_content=doc_content, question=question
         )
 
-        response = model.generate_content(
+        response = call_gemini_with_retry(
+            model,
             prompt,
             generation_config={
                 "response_mime_type": "application/json",
@@ -237,7 +261,7 @@ async def process_question_batch(
     """Process a batch of questions in parallel using ThreadPoolExecutor."""
     results = []
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Create partial function with fixed arguments
         generate_diagram_for_question = partial(
             generate_mermaid_diagram, diagram_type=diagram_type, doc_content=doc_content
