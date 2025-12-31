@@ -111,8 +111,12 @@ Transformons les données validées en format d'entraînement.
 Pour inspecter visuellement ce que vous allez donner à manger à l'IA.
 
 1.  Copiez un fichier JSON de données (ex: `raw_main.json`) dans le dossier `previewer/` et renommez-le `dataset.json`.
-2.  Ouvrez `previewer/index.html` dans votre navigateur.
-3.  Vous pouvez maintenant faire défiler les cartes montrant le "Prompt" (la demande utilisateur) et le "Diagramme" (le résultat visuel).
+2.  Lancez un serveur local pour éviter les problèmes de sécurité (CORS) :
+    ```bash
+    python -m http.server 5000 --directory previewer
+    ```
+3.  Ouvrez votre navigateur à l'adresse : [http://localhost:5000](http://localhost:5000).
+4.  Vous pouvez maintenant faire défiler les cartes montrant le "Prompt" (la demande utilisateur) et le "Diagramme" (le résultat visuel).
 
 ---
 
