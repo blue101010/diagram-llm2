@@ -3,6 +3,7 @@ import json
 import time
 import random
 import logging
+import re
 from google import genai
 from google.genai import types
 from typing import Dict, List, Any
@@ -24,18 +25,41 @@ load_dotenv()
 
 # Constants
 API_KEY = os.getenv("GOOGLE_API_KEY")  # For the base model
-BASE_MODEL = "gemini-2.0-flash-001"
+# BASE_MODEL will be selected by user
 FINE_TUNED_MODEL_ID = os.getenv("FINE_TUNED_MODEL_ID")
 VERTEX_PROJECT_ID = os.getenv("VERTEX_PROJECT_ID")
 VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "us-central1")
 
+AVAILABLE_MODELS = [
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-preview-tts",
+    "gemini-robotics-er-1.5-preview",
+    "gemma-3-12b-it",
+    "gemma-3-1b-it",
+    "gemma-3-27b-it",
+    "gemma-3-4b-it",
+    "gemini-2.5-flash-native-audio-latest"
+]
+
+# Rate Limiting Configuration
+# Set to > 0 to enforce a fixed delay between requests (e.g., 4.0 for 15 RPM)
+# Default to 15.0s for Strict Free Tier (4 RPM). Set to 0.0 for higher tiers.
+RATE_LIMIT_DELAY = float(os.getenv("RATE_LIMIT_DELAY", "15.0"))
+
 OUTPUT_DIR = "outputs"
 RAW_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "raw_responses.json")
 CLEAN_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "clean_responses.json")
-VALIDATION_DATA_FILE = "validation_data.jsonl"
+
+# Handle path relative to script location or current working directory
+if os.path.exists(os.path.join("gemini_fine_tune", "dataset", "validation_data.jsonl")):
+    VALIDATION_DATA_FILE = os.path.join("gemini_fine_tune", "dataset", "validation_data.jsonl")
+else:
+    VALIDATION_DATA_FILE = os.path.join("dataset", "validation_data.jsonl")
 
 # Retry Configuration
-MAX_RETRIES = 5
+MAX_RETRIES = 10  # Increased retries for 429s
 INITIAL_BACKOFF = 2.0
 
 
@@ -56,45 +80,113 @@ def load_validation_data(file_path: str) -> List[Dict[str, Any]]:
     return data
 
 
-def generate_base_model_response(prompt: str, system_instruction: str) -> str:
-    """Generate a response from the base model."""
-    client = genai.Client(api_key=API_KEY)
+def select_base_model() -> str:
+    """Prompt user to select a base model."""
+    print("\nSelect Base Model:")
+    for i, model in enumerate(AVAILABLE_MODELS):
+        default_marker = " (Default)" if i == 0 else ""
+        print(f"{i + 1}. {model}{default_marker}")
     
-    config = types.GenerateContentConfig(
-        temperature=1,
-        top_p=0.95,
-        max_output_tokens=8192,
-        response_modalities=["TEXT"],
-        system_instruction=system_instruction
-    )
+    choice = input(f"\nEnter choice [1-{len(AVAILABLE_MODELS)}] (Press Enter for {AVAILABLE_MODELS[0]}): ").strip()
+    
+    if not choice:
+        return AVAILABLE_MODELS[0]
+    
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(AVAILABLE_MODELS):
+            return AVAILABLE_MODELS[idx]
+        else:
+            print("Invalid choice. Using default.")
+            return AVAILABLE_MODELS[0]
+    except ValueError:
+        print("Invalid input. Using default.")
+        return AVAILABLE_MODELS[0]
 
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = client.models.generate_content(
-                model=BASE_MODEL,
-                contents=prompt,
-                config=config
-            )
-            return response.text
-        except Exception as e:
-            if attempt == MAX_RETRIES - 1:
-                logger.error(f"Error generating response from base model after {MAX_RETRIES} attempts: {e}")
-                return f"Error: {str(e)}"
-            
-            delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-            logger.warning(f"Base Model API Error: {e}. Retrying in {delay:.2f}s...")
-            time.sleep(delay)
+
+def generate_base_model_response(model_name: str, prompt: str, system_instruction: str) -> str:
+    """Generate a response from the base model."""
+    # Try v1beta first (default), then v1alpha if 404
+    api_versions = ["v1beta", "v1alpha"]
     
-    return "Error: Max retries exceeded"
+    for api_version in api_versions:
+        client = genai.Client(api_key=API_KEY, http_options={'api_version': api_version})
+        
+        config = types.GenerateContentConfig(
+            temperature=1,
+            top_p=0.95,
+            max_output_tokens=8192,
+            response_modalities=["TEXT"],
+            system_instruction=system_instruction
+        )
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                if RATE_LIMIT_DELAY > 0:
+                    time.sleep(RATE_LIMIT_DELAY)
+
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=config
+                )
+                return response.text
+            except Exception as e:
+                error_str = str(e)
+                
+                # If 404 Not Found, break retry loop and try next API version
+                if "404" in error_str and "NOT_FOUND" in error_str:
+                    logger.warning(f"Model {model_name} not found in {api_version}. Trying next version if available...")
+                    break # Break inner loop to try next api_version
+                
+                if attempt == MAX_RETRIES - 1:
+                    logger.error(f"Error generating response from base model after {MAX_RETRIES} attempts: {e}")
+                    return f"Error: {str(e)}"
+                
+                # Check for 429 or Resource Exhausted
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                    # Try to extract retry delay from message
+                    # Pattern: "Please retry in 58.310634397s."
+                    match = re.search(r"retry in (\d+(\.\d+)?)s", error_str)
+                    if match:
+                        delay = float(match.group(1)) + 1.0 # Add buffer
+                        logger.warning(f"Rate limit hit. Waiting {delay:.2f}s as requested by API...")
+                    else:
+                        delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+                        logger.warning(f"Rate limit hit. Retrying in {delay:.2f}s...")
+                else:
+                    delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+                    logger.warning(f"Base Model API Error: {e}. Retrying in {delay:.2f}s...")
+                
+                time.sleep(delay)
+        
+        # If we successfully returned, we wouldn't be here.
+        # If we broke out of the loop due to 404, we continue to next api_version.
+        # If we exhausted retries, we returned Error.
+    
+    return f"Error: Model {model_name} not found or failed in all API versions."
 
 
 def generate_fine_tuned_response(prompt: str) -> str:
     """Generate a response from the fine-tuned model using Vertex AI with retry logic."""
-    client = genai.Client(
-        vertexai=True,
-        project=VERTEX_PROJECT_ID,
-        location=VERTEX_LOCATION,
-    )
+    # If FINE_TUNED_MODEL_ID starts with "projects/", it's a Vertex AI endpoint.
+    # Otherwise, treat it as a standard Gemini model ID (e.g., "tunedModels/...")
+    
+    is_vertex = FINE_TUNED_MODEL_ID.startswith("projects/")
+    
+    if is_vertex:
+        try:
+            client = genai.Client(
+                vertexai=True,
+                project=VERTEX_PROJECT_ID,
+                location=VERTEX_LOCATION,
+            )
+        except ValueError as e:
+            logger.error(f"Failed to initialize Vertex AI client: {e}")
+            return f"Error: {str(e)}"
+    else:
+        # Use standard API Key client for non-Vertex tuned models
+        client = genai.Client(api_key=API_KEY)
 
     contents = [
         types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
@@ -105,11 +197,7 @@ def generate_fine_tuned_response(prompt: str) -> str:
         top_p=0.95,
         max_output_tokens=8192,
         response_modalities=["TEXT"],
-        speech_config=types.SpeechConfig(
-            voice_config=types.VoiceConfig(
-                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="zephyr")
-            ),
-        ),
+        # Speech config removed as it might not be supported on all models/endpoints
         safety_settings=[
             types.SafetySetting(
                 category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"
@@ -128,6 +216,9 @@ def generate_fine_tuned_response(prompt: str) -> str:
 
     for attempt in range(MAX_RETRIES):
         try:
+            if RATE_LIMIT_DELAY > 0:
+                time.sleep(RATE_LIMIT_DELAY)
+
             response = ""
             for chunk in client.models.generate_content_stream(
                 model=FINE_TUNED_MODEL_ID,
@@ -139,12 +230,32 @@ def generate_fine_tuned_response(prompt: str) -> str:
             return response
 
         except Exception as e:
+            error_str = str(e)
+            
+            # Check for Missing Credentials (ADC)
+            if "default credentials were not found" in error_str:
+                logger.error("Vertex AI Authentication Failed: Application Default Credentials (ADC) not found.")
+                logger.error("To fix this, run: 'gcloud auth application-default login' in your terminal.")
+                logger.error("Or set GOOGLE_APPLICATION_CREDENTIALS to your service account key path.")
+                return "Error: Vertex AI Authentication Failed (ADC not found)."
+
             if attempt == MAX_RETRIES - 1:
                 logger.error(f"Error generating response from fine-tuned model after {MAX_RETRIES} attempts: {e}")
                 return f"Error: {str(e)}"
             
-            delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-            logger.warning(f"API Error: {e}. Retrying in {delay:.2f}s...")
+            # Check for 429 or Resource Exhausted
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                match = re.search(r"retry in (\d+(\.\d+)?)s", error_str)
+                if match:
+                    delay = float(match.group(1)) + 1.0
+                    logger.warning(f"Rate limit hit (Fine-tuned). Waiting {delay:.2f}s as requested by API...")
+                else:
+                    delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+                    logger.warning(f"Rate limit hit (Fine-tuned). Retrying in {delay:.2f}s...")
+            else:
+                delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+                logger.warning(f"API Error: {e}. Retrying in {delay:.2f}s...")
+            
             time.sleep(delay)
     
     return "Error: Max retries exceeded"
@@ -164,6 +275,32 @@ def extract_mermaid_code(response: str) -> str:
 
 def main() -> None:
     """Main execution function."""
+    
+    # Select model first to display in banner
+    base_model = select_base_model()
+
+    print("=" * 60)
+    print("       GEMINI FINE-TUNE INFERENCE & VALIDATION SCRIPT")
+    print("=" * 60)
+    print(f"Description:  Generates responses from Base Model ({base_model})")
+    print(f"              and Fine-Tuned Model ({FINE_TUNED_MODEL_ID})")
+    print(f"              for comparison using validation dataset.")
+    print("-" * 60)
+    print(f"Input Data:   {VALIDATION_DATA_FILE}")
+    print(f"Output Raw:   {RAW_OUTPUT_FILE}")
+    print(f"Output Clean: {CLEAN_OUTPUT_FILE}")
+    print("-" * 60)
+    print(f"Rate Limit:   {RATE_LIMIT_DELAY}s delay between requests")
+    if RATE_LIMIT_DELAY >= 10.0:
+        print("              (Optimized for STRICT FREE-TIER: ~4 RPM)")
+        print("              Set RATE_LIMIT_DELAY=0.0 for higher tiers.")
+    elif RATE_LIMIT_DELAY >= 4.0:
+        print("              (Optimized for FREE-TIER: ~15 RPM)")
+        print("              Set RATE_LIMIT_DELAY=0.0 for higher tiers.")
+    print(f"Max Retries:  {MAX_RETRIES}")
+    print("=" * 60)
+    print("\n")
+
     setup()
 
     # Load validation data
@@ -194,11 +331,11 @@ def main() -> None:
         result = {"prompt": prompt, "expected_output": expected_output, "models": {}}
 
         # Generate response from base model
-        logger.info(f"Generating response from {BASE_MODEL}...")
-        base_response = generate_base_model_response(prompt, system_instruction)
+        logger.info(f"Generating response from {base_model}...")
+        base_response = generate_base_model_response(base_model, prompt, system_instruction)
         base_clean = extract_mermaid_code(base_response)
 
-        result["models"][BASE_MODEL] = {
+        result["models"][base_model] = {
             "raw_response": base_response,
             "clean_mermaid": base_clean,
         }
@@ -230,7 +367,7 @@ def main() -> None:
             "prompt": result["prompt"],
             "expected_output": result["expected_output"],
             "models": {
-                BASE_MODEL: result["models"][BASE_MODEL]["clean_mermaid"],
+                base_model: result["models"][base_model]["clean_mermaid"],
                 "fine-tuned": result["models"]["fine-tuned"]["clean_mermaid"],
             },
         }
