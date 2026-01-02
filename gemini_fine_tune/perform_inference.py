@@ -4,6 +4,7 @@ import time
 import random
 import logging
 import re
+import sys
 from google import genai
 from google.genai import types
 from typing import Dict, List, Any
@@ -19,6 +20,10 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Enable debug logging for httpx to see network traffic
+logging.getLogger("httpx").setLevel(logging.DEBUG)
+logging.getLogger("httpcore").setLevel(logging.DEBUG)
 
 # Load environment variables
 load_dotenv()
@@ -166,7 +171,9 @@ def generate_base_model_response(model_name: str, prompt: str, system_instructio
     api_versions = ["v1beta", "v1alpha"]
     
     for api_version in api_versions:
-        client = genai.Client(api_key=API_KEY, http_options={'api_version': api_version})
+        # Timeout is in milliseconds for google-genai v0.3+? Or maybe it's just being weird.
+        # Increasing to 600000 (600s = 10min) to avoid ReadTimeout on large models like Gemma-27b
+        client = genai.Client(api_key=API_KEY, http_options={'api_version': api_version, 'timeout': 600000})
         
         config = types.GenerateContentConfig(
             temperature=1,
@@ -181,11 +188,13 @@ def generate_base_model_response(model_name: str, prompt: str, system_instructio
                 if RATE_LIMIT_DELAY > 0:
                     time.sleep(RATE_LIMIT_DELAY)
 
+                logger.info(f"Sending request to Base Model ({model_name})...")
                 response = client.models.generate_content(
                     model=model_name,
                     contents=prompt,
                     config=config
                 )
+                logger.info(f"Received response from Base Model ({model_name}).")
                 return response.text
             except Exception as e:
                 error_str = str(e)
@@ -236,13 +245,14 @@ def generate_fine_tuned_response(prompt: str) -> str:
                 vertexai=True,
                 project=VERTEX_PROJECT_ID,
                 location=VERTEX_LOCATION,
+                http_options={'timeout': 600000}
             )
         except ValueError as e:
             logger.error(f"Failed to initialize Vertex AI client: {e}")
             return f"Error: {str(e)}"
     else:
         # Use standard API Key client for non-Vertex tuned models
-        client = genai.Client(api_key=API_KEY)
+        client = genai.Client(api_key=API_KEY, http_options={'timeout': 600000})
 
     contents = [
         types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
@@ -275,15 +285,15 @@ def generate_fine_tuned_response(prompt: str) -> str:
             if RATE_LIMIT_DELAY > 0:
                 time.sleep(RATE_LIMIT_DELAY)
 
-            response = ""
-            for chunk in client.models.generate_content_stream(
+            # Use non-streaming generation for better stability
+            logger.info(f"Sending request to Fine-Tuned Model ({FINE_TUNED_MODEL_ID})...")
+            response = client.models.generate_content(
                 model=FINE_TUNED_MODEL_ID,
                 contents=contents,
                 config=generate_content_config,
-            ):
-                if chunk.text:
-                    response += chunk.text
-            return response
+            )
+            logger.info(f"Received response from Fine-Tuned Model ({FINE_TUNED_MODEL_ID}).")
+            return response.text
 
         except Exception as e:
             error_str = str(e)
@@ -376,43 +386,50 @@ def main() -> None:
 
     start_index = len(all_results)
 
-    for i, example in enumerate(validation_data[start_index:], start=start_index):
-        logger.info(f"Processing example {i+1}/{len(validation_data)}...")
+    try:
+        for i, example in enumerate(validation_data[start_index:], start=start_index):
+            logger.info(f"Processing example {i+1}/{len(validation_data)}...")
 
-        # Extract prompt and system instruction
-        system_instruction = example["systemInstruction"]["parts"][0]["text"]
-        prompt = example["contents"][0]["parts"][0]["text"]
-        expected_output = example["contents"][1]["parts"][0]["text"]
+            # Extract prompt and system instruction
+            system_instruction = example["systemInstruction"]["parts"][0]["text"]
+            prompt = example["contents"][0]["parts"][0]["text"]
+            expected_output = example["contents"][1]["parts"][0]["text"]
 
-        result = {"prompt": prompt, "expected_output": expected_output, "models": {}}
+            result = {"prompt": prompt, "expected_output": expected_output, "models": {}}
 
-        # Generate response from base model
-        logger.info(f"Generating response from {base_model}...")
-        base_response = generate_base_model_response(base_model, prompt, system_instruction)
-        base_clean = extract_mermaid_code(base_response)
+            # Generate response from base model
+            logger.info(f"Generating response from {base_model}...")
+            base_response = generate_base_model_response(base_model, prompt, system_instruction)
+            base_clean = extract_mermaid_code(base_response)
 
-        result["models"][base_model] = {
-            "raw_response": base_response,
-            "clean_mermaid": base_clean,
-        }
+            result["models"][base_model] = {
+                "raw_response": base_response,
+                "clean_mermaid": base_clean,
+            }
 
-        # Generate response from fine-tuned model
-        logger.info(f"Generating response from fine-tuned model...")
-        ft_response = generate_fine_tuned_response(prompt)
-        ft_clean = extract_mermaid_code(ft_response)
-        
-        result["models"]["fine-tuned"] = {
-            "raw_response": ft_response,
-            "clean_mermaid": ft_clean,
-        }
+            # Generate response from fine-tuned model
+            logger.info(f"Generating response from fine-tuned model...")
+            ft_response = generate_fine_tuned_response(prompt)
+            ft_clean = extract_mermaid_code(ft_response)
+            
+            result["models"]["fine-tuned"] = {
+                "raw_response": ft_response,
+                "clean_mermaid": ft_clean,
+            }
 
-        all_results.append(result)
+            all_results.append(result)
 
-        # Save progress incrementally (every 5 items or at the end)
-        if (i + 1) % 5 == 0 or (i + 1) == len(validation_data):
-            logger.info(f"Saving progress to {RAW_OUTPUT_FILE}...")
-            with open(RAW_OUTPUT_FILE, "w") as f:
-                json.dump(all_results, f, indent=2)
+            # Save progress incrementally (every 5 items or at the end)
+            if (i + 1) % 5 == 0 or (i + 1) == len(validation_data):
+                logger.info(f"Saving progress to {RAW_OUTPUT_FILE}...")
+                with open(RAW_OUTPUT_FILE, "w") as f:
+                    json.dump(all_results, f, indent=2)
+
+    except KeyboardInterrupt:
+        logger.warning("\nScript interrupted by user (Ctrl-C). Saving progress...")
+        with open(RAW_OUTPUT_FILE, "w") as f:
+            json.dump(all_results, f, indent=2)
+        sys.exit(0)
 
     # Save clean responses (just the extracted mermaid code)
 
