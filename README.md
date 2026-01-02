@@ -2,9 +2,8 @@
 
 ## Fork acknowlegement credit
 
-Fork from yashrathi-git/diagram-llm with updates.
-
-A research project on generation of diagrams via LLMs.
+Fork from yashrathi-git/diagram-llm with updates by blue101010
+Initailly based on A research project on generation of diagrams via LLMs.
 
 ## Quick start
 
@@ -15,9 +14,9 @@ A research project on generation of diagrams via LLMs.
 python gemini_fine_tune/perform_inference.py
 ```
 
-## Novel Aspects
+## Novel Aspects  of inital diagram-llm research
 
-- We created a completely novel synthetic dataset for prompt -> mermaid diagram pairs for fine-tuning.
+- creation of completely novel synthetic dataset for prompt -> mermaid diagram pairs for fine-tuning.
 - Achieved a performance boost of 82% after fine-tuning.
 - Currently only very few SOTA models like Claude Sonnet, GPT-5, Gemini 2.5 Pro are able to generate accurate diagrams. Smaller and cheaper model generally fails to creatve valid or good quality diagrams.
 - The novel dataset from this research could be taken to fine-tune smaller LLMs like Phi-4 for accurate diagram generation.
