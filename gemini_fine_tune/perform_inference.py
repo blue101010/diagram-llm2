@@ -115,6 +115,14 @@ def select_base_model() -> str:
 
 def generate_base_model_response(model_name: str, prompt: str, system_instruction: str) -> str:
     """Generate a response from the base model."""
+    
+    # Gemma models might not support system_instruction in config (Error 400)
+    # Workaround: Prepend to prompt
+    if "gemma" in model_name.lower():
+        if system_instruction:
+            prompt = f"System Instruction: {system_instruction}\n\nUser Prompt: {prompt}"
+            system_instruction = None
+
     # Try v1beta first (default), then v1alpha if 404
     api_versions = ["v1beta", "v1alpha"]
     
