@@ -345,6 +345,15 @@ def main() -> None:
     # Select model first to display in banner
     base_model = select_base_model()
 
+    # Ask for number of iterations
+    limit_input = input("\nEnter number of examples to process (Press Enter for all): ").strip()
+    max_examples = None
+    if limit_input:
+        try:
+            max_examples = int(limit_input)
+        except ValueError:
+            print("Invalid input. Processing all examples.")
+
     print("=" * 60)
     print("       GEMINI FINE-TUNE INFERENCE & VALIDATION SCRIPT")
     print("=" * 60)
@@ -385,9 +394,15 @@ def main() -> None:
             logger.warning("Could not load existing results, starting fresh.")
 
     start_index = len(all_results)
+    
+    # Determine which examples to process
+    remaining_data = validation_data[start_index:]
+    if max_examples is not None:
+        remaining_data = remaining_data[:max_examples]
+        logger.info(f"Limit set: Processing next {len(remaining_data)} examples.")
 
     try:
-        for i, example in enumerate(validation_data[start_index:], start=start_index):
+        for i, example in enumerate(remaining_data, start=start_index):
             logger.info(f"Processing example {i+1}/{len(validation_data)}...")
 
             # Extract prompt and system instruction
@@ -419,11 +434,10 @@ def main() -> None:
 
             all_results.append(result)
 
-            # Save progress incrementally (every 5 items or at the end)
-            if (i + 1) % 5 == 0 or (i + 1) == len(validation_data):
-                logger.info(f"Saving progress to {RAW_OUTPUT_FILE}...")
-                with open(RAW_OUTPUT_FILE, "w") as f:
-                    json.dump(all_results, f, indent=2)
+            # Save progress after EVERY item
+            logger.info(f"Saving progress to {RAW_OUTPUT_FILE}...")
+            with open(RAW_OUTPUT_FILE, "w") as f:
+                json.dump(all_results, f, indent=2)
 
     except KeyboardInterrupt:
         logger.warning("\nScript interrupted by user (Ctrl-C). Saving progress...")
