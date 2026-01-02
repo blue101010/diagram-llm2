@@ -6,6 +6,15 @@ Fork from yashrathi-git/diagram-llm with updates.
 
 A research project on generation of diagrams via LLMs.
 
+## Quick start
+
+* update you API KEY in .env
+* Execute, confirm model
+
+```
+python gemini_fine_tune/perform_inference.py
+```
+
 ## Novel Aspects
 
 - We created a completely novel synthetic dataset for prompt -> mermaid diagram pairs for fine-tuning.
