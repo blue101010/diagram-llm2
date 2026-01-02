@@ -31,15 +31,17 @@ VERTEX_PROJECT_ID = os.getenv("VERTEX_PROJECT_ID")
 VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "us-central1")
 
 AVAILABLE_MODELS = [
+    "gemma-3-27b-it",
     "gemini-3-flash-preview",
-    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
     "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemma-3-12b-it",
+    "gemma-3-4b-it",
+    "gemma-3-1b-it",
     "gemini-2.5-flash-preview-tts",
     "gemini-robotics-er-1.5-preview",
-    "gemma-3-12b-it",
-    "gemma-3-1b-it",
-    "gemma-3-27b-it",
-    "gemma-3-4b-it",
     "gemini-2.5-flash-native-audio-latest"
 ]
 
@@ -83,9 +85,16 @@ def load_validation_data(file_path: str) -> List[Dict[str, Any]]:
 def select_base_model() -> str:
     """Prompt user to select a base model."""
     print("\nSelect Base Model:")
+    print(f"{'ID':<4} {'Model Name':<40} {'Note'}")
+    print("-" * 70)
     for i, model in enumerate(AVAILABLE_MODELS):
-        default_marker = " (Default)" if i == 0 else ""
-        print(f"{i + 1}. {model}{default_marker}")
+        note = ""
+        if i == 0:
+            note = "(Recommended / Default)"
+        elif "gemini-3-flash" in model:
+            note = "(Low Quota in free mode: 20 Req. Per Day)"
+        
+        print(f"{i + 1:<4} {model:<40} {note}")
     
     choice = input(f"\nEnter choice [1-{len(AVAILABLE_MODELS)}] (Press Enter for {AVAILABLE_MODELS[0]}): ").strip()
     
@@ -150,13 +159,13 @@ def generate_base_model_response(model_name: str, prompt: str, system_instructio
                     match = re.search(r"retry in (\d+(\.\d+)?)s", error_str)
                     if match:
                         delay = float(match.group(1)) + 1.0 # Add buffer
-                        logger.warning(f"Rate limit hit. Waiting {delay:.2f}s as requested by API...")
+                        logger.warning(f"Rate limit hit [Attempt {attempt+1}/{MAX_RETRIES}]. Waiting {delay:.2f}s as requested by API...")
                     else:
                         delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-                        logger.warning(f"Rate limit hit. Retrying in {delay:.2f}s...")
+                        logger.warning(f"Rate limit hit [Attempt {attempt+1}/{MAX_RETRIES}]. Retrying in {delay:.2f}s...")
                 else:
                     delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-                    logger.warning(f"Base Model API Error: {e}. Retrying in {delay:.2f}s...")
+                    logger.warning(f"Base Model API Error: {e} [Attempt {attempt+1}/{MAX_RETRIES}]. Retrying in {delay:.2f}s...")
                 
                 time.sleep(delay)
         
@@ -248,13 +257,13 @@ def generate_fine_tuned_response(prompt: str) -> str:
                 match = re.search(r"retry in (\d+(\.\d+)?)s", error_str)
                 if match:
                     delay = float(match.group(1)) + 1.0
-                    logger.warning(f"Rate limit hit (Fine-tuned). Waiting {delay:.2f}s as requested by API...")
+                    logger.warning(f"Rate limit hit (Fine-tuned) [Attempt {attempt+1}/{MAX_RETRIES}]. Waiting {delay:.2f}s as requested by API...")
                 else:
                     delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-                    logger.warning(f"Rate limit hit (Fine-tuned). Retrying in {delay:.2f}s...")
+                    logger.warning(f"Rate limit hit (Fine-tuned) [Attempt {attempt+1}/{MAX_RETRIES}]. Retrying in {delay:.2f}s...")
             else:
                 delay = INITIAL_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
-                logger.warning(f"API Error: {e}. Retrying in {delay:.2f}s...")
+                logger.warning(f"API Error: {e} [Attempt {attempt+1}/{MAX_RETRIES}]. Retrying in {delay:.2f}s...")
             
             time.sleep(delay)
     

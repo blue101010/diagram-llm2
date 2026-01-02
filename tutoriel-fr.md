@@ -1,6 +1,6 @@
 # Tutoriel et Plan de Test : Projet Diagram-LLM2
 
-Ce document sert de guide complet pour comprendre, installer et tester le projet **Diagram-LLM2**. Ce projet vise à créer des jeux de données synthétiques de haute qualité pour entraîner des modèles d'IA (comme Gemini ou Phi-4) à générer des diagrammes **Mermaid.js**.
+Ce document sert de guide complet pour comprendre, installer et tester le projet **Diagram-LLM2**. Ce projet vise à créer des jeux de données synthétiques de haute qualité pour entraîner des modèles d'IA (comme Gemini,gemma-3-27b ou Phi-4) à générer des diagrammes **Mermaid.js**.
 
 ---
 
@@ -31,7 +31,7 @@ Le système est modulaire :
 
 Avant de commencer, assurez-vous d'avoir :
 
-1.  **Python 3.10** ou supérieur installé.
+1.  **Python 3.10 ** ou supérieur installé.
 2.  Une **Clé API Google Gemini**.
     *   Créez un fichier `.env` à la racine du projet (copiez `.env.example` s'il existe).
     *   Ajoutez votre clé : `GEMINI_API_KEY=votre_clé_ici`.
@@ -232,3 +232,42 @@ response = client.models.generate_content(
     )
 )
 ```
+
+## 6. Gestion des Quotas et Modèles (Inférence)
+
+Lors de l'exécution du script d'inférence (`gemini_fine_tune/perform_inference.py`), il est crucial de comprendre les limites de l'API Google Gemini (Free Tier) pour éviter les erreurs `429 RESOURCE_EXHAUSTED`.
+
+### Limites de l'API (Free Tier)
+
+Les quotas varient considérablement selon le modèle choisi (données observées en Janvier 2026). Voici un comparatif pour vous aider à choisir :
+
+| Modèle | RPM (Req/min) | TPM (Tokens/min) | RPD (Req/jour) | Usage Recommandé |
+| :--- | :--- | :--- | :--- | :--- |
+| **Gemma 3 (27b-it)** | **30** | 15,000 | **14,400** | **Validation de masse** (Recommandé) |
+| **Gemini 3 Flash** | 5 | 250,000 | **20** | Tests unitaires / Preview |
+| Gemini 2.5 Flash | 5 | 250,000 | 20 | Usage général (Quota faible) |
+| Gemini 2.5 Flash-Lite | 10 | 250,000 | 20 | Tests rapides |
+
+> **Note** : Les modèles "Flash" en Free Tier sont actuellement très limités en requêtes journalières (20 RPD). Privilégiez la famille **Gemma 3** pour traiter de gros volumes de données.
+
+### Configuration du Script d'Inférence
+
+Le script `perform_inference.py` a été amélioré pour gérer ces contraintes :
+
+1.  **Menu de Sélection** : Au lancement, le script vous demande de choisir le **Base Model** (le modèle de référence).
+    *   *Conseil* : Choisissez `gemma-3-27b-it` (ou un autre modèle Gemma) pour éviter les blocages de quota journalier si vous avez beaucoup de données.
+2.  **Gestion du Fine-Tuned Model** :
+    *   Par défaut, le script tente de se connecter à Vertex AI si l'ID commence par `projects/`.
+    *   Pour utiliser un modèle standard ou un placeholder (pour tester le script sans modèle fine-tuné), modifiez votre fichier `.env` :
+        ```dotenv
+        # Commenter la config Vertex AI
+        # FINE_TUNED_MODEL_ID=projects/...
+        
+        # Utiliser un modèle standard comme placeholder (ex: gemma-3-27b-it)
+        # Cela permet de tester le script sans authentification Vertex AI complexe
+        FINE_TUNED_MODEL_ID=gemma-3-27b-it
+        ```
+3.  **Délais Automatiques** :
+    *   Le script détecte les erreurs 429 et attend automatiquement le temps demandé par l'API (souvent > 40s).
+    *   Vous pouvez forcer un délai fixe via `.env` : `RATE_LIMIT_DELAY=4.0` (pour 15 RPM).
+
