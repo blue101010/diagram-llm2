@@ -46,9 +46,25 @@ AVAILABLE_MODELS = [
 ]
 
 # Rate Limiting Configuration
-# Set to > 0 to enforce a fixed delay between requests (e.g., 4.0 for 15 RPM)
-# Default to 15.0s for Strict Free Tier (4 RPM). Set to 0.0 for higher tiers.
+# Will be updated dynamically based on model selection and models_limits_free.json
 RATE_LIMIT_DELAY = float(os.getenv("RATE_LIMIT_DELAY", "15.0"))
+
+MODELS_LIMITS_FILE = "models_limits_free.json"
+MODELS_LIMITS = {}
+
+# Load model limits if file exists
+if os.path.exists(MODELS_LIMITS_FILE):
+    try:
+        with open(MODELS_LIMITS_FILE, "r") as f:
+            MODELS_LIMITS = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load {MODELS_LIMITS_FILE}: {e}")
+elif os.path.exists(os.path.join("gemini_fine_tune", MODELS_LIMITS_FILE)):
+    try:
+        with open(os.path.join("gemini_fine_tune", MODELS_LIMITS_FILE), "r") as f:
+            MODELS_LIMITS = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load {MODELS_LIMITS_FILE}: {e}")
 
 OUTPUT_DIR = "outputs"
 RAW_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "raw_responses.json")
@@ -83,34 +99,57 @@ def load_validation_data(file_path: str) -> List[Dict[str, Any]]:
 
 
 def select_base_model() -> str:
-    """Prompt user to select a base model."""
+    """Prompt user to select a base model and update RATE_LIMIT_DELAY."""
+    global RATE_LIMIT_DELAY
+    
     print("\nSelect Base Model:")
-    print(f"{'ID':<4} {'Model Name':<40} {'Note'}")
-    print("-" * 70)
+    print(f"{'ID':<4} {'Model Name':<40} {'RPM Limit':<10} {'Note'}")
+    print("-" * 80)
+    
     for i, model in enumerate(AVAILABLE_MODELS):
         note = ""
+        rpm_info = "N/A"
+        
+        if model in MODELS_LIMITS:
+            rpm = MODELS_LIMITS[model].get("rpm", 0)
+            rpm_info = str(rpm)
+            if rpm < 10:
+                note = "(Low RPM)"
+        
         if i == 0:
             note = "(Recommended / Default)"
         elif "gemini-3-flash" in model:
-            note = "(Low Quota in free mode: 20 Req. Per Day)"
+            note = "(Low Quota: 20 RPD)"
         
-        print(f"{i + 1:<4} {model:<40} {note}")
+        print(f"{i + 1:<4} {model:<40} {rpm_info:<10} {note}")
     
     choice = input(f"\nEnter choice [1-{len(AVAILABLE_MODELS)}] (Press Enter for {AVAILABLE_MODELS[0]}): ").strip()
     
-    if not choice:
-        return AVAILABLE_MODELS[0]
+    selected_model = AVAILABLE_MODELS[0]
+    if choice:
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(AVAILABLE_MODELS):
+                selected_model = AVAILABLE_MODELS[idx]
+            else:
+                print("Invalid choice. Using default.")
+        except ValueError:
+            print("Invalid input. Using default.")
     
-    try:
-        idx = int(choice) - 1
-        if 0 <= idx < len(AVAILABLE_MODELS):
-            return AVAILABLE_MODELS[idx]
-        else:
-            print("Invalid choice. Using default.")
-            return AVAILABLE_MODELS[0]
-    except ValueError:
-        print("Invalid input. Using default.")
-        return AVAILABLE_MODELS[0]
+    # Update RATE_LIMIT_DELAY based on selected model
+    if selected_model in MODELS_LIMITS:
+        rpm = MODELS_LIMITS[selected_model].get("rpm", 0)
+        if rpm > 0:
+            # Calculate delay: 60 / (RPM - 1) to be safe
+            # If RPM is very high (e.g. 9999), delay is negligible
+            target_rpm = max(1, rpm - 1)
+            new_delay = 60.0 / target_rpm
+            print(f"\n[Config] Selected model: {selected_model}")
+            print(f"[Config] Max RPM: {rpm}. Setting target RPM to {target_rpm}.")
+            print(f"[Config] Updating RATE_LIMIT_DELAY from {RATE_LIMIT_DELAY}s to {new_delay:.2f}s")
+            RATE_LIMIT_DELAY = new_delay
+    
+    return selected_model
 
 
 def generate_base_model_response(model_name: str, prompt: str, system_instruction: str) -> str:
