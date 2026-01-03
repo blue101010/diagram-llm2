@@ -210,12 +210,29 @@ class DiagramGenerator:
             (is_valid, error_message)
         """
         # 1. Try Official Mermaid CLI (mmdc)
-        mmdc_path = shutil.which("mmdc")
-        if not mmdc_path and os.name == 'nt':
-             mmdc_path = shutil.which("mmdc.cmd")
+        mmdc_path = None
+        
+        # On Windows, check specific paths
+        if os.name == 'nt':
+            # 1. Check PATH for mmdc.cmd
+            mmdc_path = shutil.which("mmdc.cmd")
+            
+            # 2. Check APPDATA/npm (common install location)
+            if not mmdc_path:
+                appdata = os.getenv('APPDATA')
+                if appdata:
+                    possible_path = os.path.join(appdata, 'npm', 'mmdc.cmd')
+                    if os.path.exists(possible_path):
+                        mmdc_path = possible_path
+        
+        # Fallback or non-Windows
+        if not mmdc_path:
+            mmdc_path = shutil.which("mmdc")
 
         if mmdc_path:
+            logger.debug(f"Attempting validation with Mermaid CLI at: {mmdc_path}")
             try:
+                # Create temp file
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False, encoding='utf-8') as tmp:
                     tmp.write(mermaid_code)
                     tmp_path = tmp.name
@@ -225,13 +242,15 @@ class DiagramGenerator:
                 
                 # Run mmdc
                 # We use --quiet to reduce noise, but capture stderr for errors
+                # On Windows, if using .cmd, shell=True might be safer, but full path usually works.
                 cmd = [mmdc_path, "-i", tmp_path, "-o", out_svg]
                 
                 result = subprocess.run(
                     cmd, 
                     capture_output=True, 
                     text=True, 
-                    check=False
+                    check=False,
+                    shell=(os.name == 'nt') # Use shell=True on Windows to ensure .cmd execution
                 )
                 
                 # Cleanup
@@ -247,7 +266,6 @@ class DiagramGenerator:
                     return True, ""
                 else:
                     # Extract error from stderr
-                    # mmdc usually prints "Parse error on line X: ..."
                     return False, f"Mermaid CLI Error: {result.stderr.strip()}"
                     
             except Exception as e:
@@ -255,7 +273,7 @@ class DiagramGenerator:
         else:
             # Only log once per session ideally, but here we log every time it's missing if we want to be annoying, 
             # or just debug. Let's use debug.
-            logger.debug("Mermaid CLI (mmdc) not found. Using basic validation.")
+            logger.warning("Mermaid CLI (mmdc) not found. Using basic validation.")
 
         # 2. Basic Validation (Fallback)
         # Check for basic structure
