@@ -7,7 +7,7 @@ import re
 import sys
 from google import genai
 from google.genai import types
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 
 # Configure logging
@@ -157,7 +157,7 @@ def select_base_model() -> str:
     return selected_model
 
 
-def generate_base_model_response(model_name: str, prompt: str, system_instruction: str) -> str:
+def generate_base_model_response(model_name: str, prompt: str, system_instruction: Optional[str]) -> str:
     """Generate a response from the base model."""
     
     # Gemma models might not support system_instruction in config (Error 400)
@@ -173,7 +173,7 @@ def generate_base_model_response(model_name: str, prompt: str, system_instructio
     for api_version in api_versions:
         # Timeout is in milliseconds for google-genai v0.3+? Or maybe it's just being weird.
         # Increasing to 600000 (600s = 10min) to avoid ReadTimeout on large models like Gemma-27b
-        client = genai.Client(api_key=API_KEY, http_options={'api_version': api_version, 'timeout': 600000})
+        client = genai.Client(api_key=API_KEY, http_options={'api_version': api_version, 'timeout': 100000})
         
         config = types.GenerateContentConfig(
             temperature=1,
@@ -195,7 +195,7 @@ def generate_base_model_response(model_name: str, prompt: str, system_instructio
                     config=config
                 )
                 logger.info(f"Received response from Base Model ({model_name}).")
-                return response.text
+                return response.text or ""
             except Exception as e:
                 error_str = str(e)
                 
@@ -237,6 +237,9 @@ def generate_fine_tuned_response(prompt: str) -> str:
     # If FINE_TUNED_MODEL_ID starts with "projects/", it's a Vertex AI endpoint.
     # Otherwise, treat it as a standard Gemini model ID (e.g., "tunedModels/...")
     
+    if not FINE_TUNED_MODEL_ID:
+        return "Error: FINE_TUNED_MODEL_ID is not set."
+
     is_vertex = FINE_TUNED_MODEL_ID.startswith("projects/")
     
     if is_vertex:
@@ -266,16 +269,20 @@ def generate_fine_tuned_response(prompt: str) -> str:
         # Speech config removed as it might not be supported on all models/endpoints
         safety_settings=[
             types.SafetySetting(
-                category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_MEDIUM_AND_ABOVE"
+                category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
             ),
             types.SafetySetting(
-                category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
+                category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
             ),
             types.SafetySetting(
-                category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_MEDIUM_AND_ABOVE"
+                category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
             ),
             types.SafetySetting(
-                category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_MEDIUM_AND_ABOVE"
+                category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold=types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
             ),
         ],
     )
@@ -293,7 +300,7 @@ def generate_fine_tuned_response(prompt: str) -> str:
                 config=generate_content_config,
             )
             logger.info(f"Received response from Fine-Tuned Model ({FINE_TUNED_MODEL_ID}).")
-            return response.text
+            return response.text or ""
 
         except Exception as e:
             error_str = str(e)

@@ -7,6 +7,10 @@
 
 import logging
 import re
+import subprocess
+import tempfile
+import shutil
+import os
 from pathlib import Path
 from typing import Optional, Dict
 from dataclasses import dataclass
@@ -197,12 +201,63 @@ class DiagramGenerator:
     
     def validate_mermaid(self, mermaid_code: str) -> tuple[bool, str]:
         """
-        Basic validation of Mermaid syntax.
-        For full validation, use: https://github.com/mermaid-js/mermaid
+        Validate Mermaid syntax using the official Mermaid CLI (mmdc) if available.
+        Falls back to basic validation if mmdc is not found.
+        
+        To enable full validation: npm install -g @mermaid-js/mermaid-cli
         
         Returns:
             (is_valid, error_message)
         """
+        # 1. Try Official Mermaid CLI (mmdc)
+        mmdc_path = shutil.which("mmdc")
+        if not mmdc_path and os.name == 'nt':
+             mmdc_path = shutil.which("mmdc.cmd")
+
+        if mmdc_path:
+            try:
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False, encoding='utf-8') as tmp:
+                    tmp.write(mermaid_code)
+                    tmp_path = tmp.name
+                
+                # Output to a temp file to avoid clutter
+                out_svg = tmp_path + ".svg"
+                
+                # Run mmdc
+                # We use --quiet to reduce noise, but capture stderr for errors
+                cmd = [mmdc_path, "-i", tmp_path, "-o", out_svg]
+                
+                result = subprocess.run(
+                    cmd, 
+                    capture_output=True, 
+                    text=True, 
+                    check=False
+                )
+                
+                # Cleanup
+                try:
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                    if os.path.exists(out_svg):
+                        os.unlink(out_svg)
+                except OSError:
+                    pass # Ignore cleanup errors
+                
+                if result.returncode == 0:
+                    return True, ""
+                else:
+                    # Extract error from stderr
+                    # mmdc usually prints "Parse error on line X: ..."
+                    return False, f"Mermaid CLI Error: {result.stderr.strip()}"
+                    
+            except Exception as e:
+                logger.warning(f"Mermaid CLI validation failed to run: {e}. Falling back to basic validation.")
+        else:
+            # Only log once per session ideally, but here we log every time it's missing if we want to be annoying, 
+            # or just debug. Let's use debug.
+            logger.debug("Mermaid CLI (mmdc) not found. Using basic validation.")
+
+        # 2. Basic Validation (Fallback)
         # Check for basic structure
         lines = mermaid_code.strip().split('\n')
         
@@ -216,10 +271,11 @@ class DiagramGenerator:
             'graph', 'sequencediagram', 'flowchart', 'classDiagram',
             'stateDiagram', 'entityRelationshipDiagram', 'gantt',
             'pie', 'gitGraph', 'journey', 'timeline', 'quadrantChart',
+            'erDiagram', 'mindmap', 'zenuml', 'sankey-beta', 'xychart-beta', 'block-beta', 'packet-beta'
         ]
         
         is_valid_type = any(
-            t in first_line for t in valid_types
+            t.lower() in first_line for t in valid_types
         )
         
         if not is_valid_type:

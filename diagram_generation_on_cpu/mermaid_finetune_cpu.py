@@ -113,8 +113,11 @@ def load_training_data(data_path: str) -> Dataset:
         return create_synthetic_dataset()
     
     data = []
+    error_count = 0
+    MAX_ERRORS = 5  # Stop after N errors to prevent training on bad data
+
     with open(data_path, 'r', encoding='utf-8') as f:
-        for line in f:
+        for line_num, line in enumerate(f, 1):
             if line.strip():
                 try:
                     item = json.loads(line)
@@ -126,10 +129,18 @@ def load_training_data(data_path: str) -> Dataset:
                     # Handle simple format
                     elif "instruction" in item and "output" in item:
                         data.append(item)
+                    else:
+                        raise ValueError("Missing required fields (instruction/output or contents)")
                 except Exception as e:
-                    logger.warning(f"Skipping invalid line: {e}")
+                    error_count += 1
+                    logger.error(f"Error parsing line {line_num}: {e}")
+                    if error_count > MAX_ERRORS:
+                        raise ValueError(f"Too many errors ({error_count}) encountered while loading dataset. Aborting.")
                     continue
     
+    if len(data) == 0:
+        raise ValueError(f"No valid training examples found in {data_path}")
+
     logger.info(f"Loaded {len(data)} examples from {data_path}")
     return Dataset.from_list(data)
 
