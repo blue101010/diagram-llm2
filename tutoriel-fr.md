@@ -6,7 +6,7 @@ Ce document sert de guide complet pour comprendre, installer et tester le projet
 
 ## 1. Introduction
 
-Le but de ce projet est d'automatiser la création de données d'entraînement pour les diagrammes. Au lieu d'écrire manuellement des milliers d'exemples, nous utilisons un LLM puissant (Gemini Pro) pour générer des exemples variés basés sur la documentation officielle de Mermaid.
+Le but de ce projet est d'automatiser la création de données d'entraînement pour les diagrammes. Au lieu d'écrire manuellement des milliers d'exemples, nous utilisons un LLM puissant (Gemini, Gemma, Phi) pour générer des exemples variés basés sur la documentation officielle de Mermaid.
 
 Le flux de travail complet comprend :
 1.  La génération de questions/réponses synthétiques.
@@ -271,3 +271,109 @@ Le script `perform_inference.py` a été amélioré pour gérer ces contraintes 
     *   Le script détecte les erreurs 429 et attend automatiquement le temps demandé par l'API (souvent > 40s).
     *   Vous pouvez forcer un délai fixe via `.env` : `RATE_LIMIT_DELAY=4.0` (pour 15 RPM).
 
+---
+
+## 7. Génération Locale sur CPU (Qwen2.5-1.5B)
+
+Cette section décrit comment utiliser le module `diagram_generation_on_cpu` pour entraîner et exécuter un modèle localement, sans dépendre de l'API Gemini. Nous utilisons **Qwen2.5-1.5B-Instruct**, un modèle léger capable de tourner sur CPU.
+
+### Installation Spécifique
+
+Ce module possède son propre environnement virtuel pour éviter les conflits avec le reste du projet.
+
+```bash
+cd diagram_generation_on_cpu
+
+# 1. Créer l'environnement
+python -m venv venv
+
+# 2. Activer
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# 3. Installer les dépendances (Torch CPU, Transformers, PEFT)
+pip install -r requirements.txt
+```
+
+### Test "Zero-Shot" (Sans entraînement)
+
+Pour voir ce que le modèle sait faire de base, sans entraînement spécifique :
+
+```bash
+cd zero_shot_analysis
+python test_zero_shot_mermaid.py
+```
+*Note : Le premier lancement téléchargera le modèle (~3GB). Le script affiche les diagrammes générés en temps réel.*
+
+### Fine-Tuning (Entraînement)
+
+Pour spécialiser le modèle sur vos données Mermaid (générées à l'étape 2 du tutoriel principal) :
+
+```bash
+# Revenir dans le dossier diagram_generation_on_cpu
+cd .. 
+
+# Lancer l'entraînement (ajustez les arguments selon votre RAM)
+# --train_data_path : Chemin vers votre fichier JSONL d'entraînement
+# --num_train_epochs : Nombre de passes (1 suffit souvent pour un test rapide)
+# --output_dir : Dossier de sortie pour les checkpoints
+python mermaid_finetune_cpu.py --train_data_path ../gemini_fine_tune/dataset/training_data.jsonl --num_train_epochs 1 --output_dir outputs/checkpoint-final
+```
+
+> **Note** : Si vous obtenez une erreur `ModuleNotFoundError: No module named 'torch'`, utilisez le script de lancement Bash :
+> ```bash
+> ./run_finetune.sh --train_data_path ../gemini_fine_tune/dataset/training_data.jsonl --num_train_epochs 1 --output_dir outputs/checkpoint-final
+> ```
+
+Les poids LoRA (l'adaptation du modèle) seront sauvegardés dans le dossier `outputs/`.
+
+### Inférence (Utilisation du modèle entraîné)
+
+Pour générer des diagrammes avec votre modèle affiné :
+
+```bash
+# Remplacez 'outputs/checkpoint-final' par le chemin réel de votre checkpoint
+python diagram_inference.py --lora-path outputs/checkpoint-final --instruction "Create a sequence diagram for a login flow"
+```
+
+###  Exemple
+
+ ./run_finetune.sh --train_data_path ../gemini_fine_tune/dataset/training_data.jsonl --num_train_epochs 1
+============================================================
+Starting CPU Fine-Tuning (Qwen2.5-1.5B)
+============================================================
+Using interpreter: venv/Scripts/python
+============================================================
+Initializing Fine-Tuning Script...
+Loading heavy libraries (Torch, Transformers, PEFT)... this may take a moment on CPU.
+============================================================
+Libraries loaded successfully.
+INFO:__main__:Loading model: Qwen/Qwen2.5-1.5B-Instruct
+INFO:__main__:Model parameters: 1,543,714,304
+INFO:__main__:Loading training data from ../gemini_fine_tune/dataset/training_data.jsonl
+INFO:__main__:Loaded 1921 examples from ../gemini_fine_tune/dataset/training_data.jsonl
+Map: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1921/1921 [00:00<00:00, 290383.03 examples/s]
+INFO:__main__:Loading eval data from ../gemini_fine_tune/dataset/validation_data.jsonl
+INFO:__main__:Loaded 150 examples from ../gemini_fine_tune/dataset/validation_data.jsonl
+Map: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████| 150/150 [00:00<00:00, 91886.32 examples/s]
+Map: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1921/1921 [00:01<00:00, 968.17 examples/s]
+Map: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 150/150 [00:00<00:00, 940.83 examples/s]
+INFO:__main__:Tokenized dataset. Example: {'input_ids': [38214, 374, 264, 1681, 311, 6923, 264, 13549, 304, 8755, 45242, 19482, 382, 14374, 6145, 510, 28468, 264, 2657, 42580, 13549, 369, 364, 15400, 705, 264, 501, 10554, 4427, 5443, 14158, 25, 364, 39253, 18626, 516, 364, 7688, 516, 323, 364, 16451, 4427, 758, 364, 39253, 18626, 1210, 364, 1806, 2011, 10554, 6, 320, 12338, 25, 220, 17, 11, 12089, 25, 2657, 701, 364, 14611, 5650, 336, 311, 10554, 98802, 5776, 6, 320, 12338, 25, 220, 19, 11, 19571, 25, 2657, 11, 5650, 336, 11, 10554, 701, 364, 14611, 17407, 311, 10554, 46425, 5776, 320, 15309, 21636, 320, 12338, 25, 220, 18, 11, 19571, 
+....
+....
+....
+============================================================
+TRAINING ESTIMATION
+============================================================
+Examples: 1921
+Epochs: 1.0
+Batch Size (Effective): 4
+Total Optimization Steps: 480
+Estimated Time (CPU): ~8.0 hours (@ 60s/step)
+
+⚠️  WARNING: Training will take a long time on CPU.
+   Consider reducing dataset size or epochs for testing.
+   You can use --max_steps 10 to run a quick test.
+============================================================

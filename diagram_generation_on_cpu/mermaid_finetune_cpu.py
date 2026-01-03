@@ -8,13 +8,23 @@
 # ============================================================================
 
 import os
+import sys
 import json
-import torch
 import logging
 from dataclasses import dataclass, field
 from typing import Optional, Dict, List
 from pathlib import Path
 
+# Setup logging immediately
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+print("="*60)
+print("Initializing Fine-Tuning Script...")
+print("Loading heavy libraries (Torch, Transformers, PEFT)... this may take a moment on CPU.")
+print("="*60)
+
+import torch
 import transformers
 from transformers import (
     AutoTokenizer,
@@ -26,8 +36,8 @@ from transformers import (
 from datasets import Dataset, DatasetDict, load_dataset
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+print("Libraries loaded successfully.")
+
 
 
 # ============================================================================
@@ -51,11 +61,11 @@ class ModelArguments:
 class DataArguments:
     """Data-specific arguments."""
     train_data_path: str = field(
-        default="train_data.json",
+        default="../gemini_fine_tune/dataset/training_data.jsonl",
         metadata={"help": "Path to training data (JSONL format)"}
     )
     eval_data_path: Optional[str] = field(
-        default="eval_data.json",
+        default="../gemini_fine_tune/dataset/validation_data.jsonl",
         metadata={"help": "Path to evaluation data (JSONL format)"}
     )
     max_seq_length: int = field(
@@ -96,23 +106,29 @@ class LoraArguments:
 def load_training_data(data_path: str) -> Dataset:
     """
     Load training data from JSONL file.
-    
-    Expected format per line:
-    {
-        "instruction": "Create a flowchart for a login process",
-        "output": "graph TD\n    A[Start] --> B[Enter Username]\n    B --> C[Enter Password]\n    ...",
-        "category": "flowchart"  # Optional: for filtering
-    }
+    Supports both simple format and Gemini API format.
     """
     if not Path(data_path).exists():
         logger.warning(f"Data file {data_path} not found. Using synthetic examples.")
         return create_synthetic_dataset()
     
     data = []
-    with open(data_path, 'r') as f:
+    with open(data_path, 'r', encoding='utf-8') as f:
         for line in f:
             if line.strip():
-                data.append(json.loads(line))
+                try:
+                    item = json.loads(line)
+                    # Handle Gemini format
+                    if "contents" in item:
+                        instruction = item["contents"][0]["parts"][0]["text"]
+                        output = item["contents"][1]["parts"][0]["text"]
+                        data.append({"instruction": instruction, "output": output})
+                    # Handle simple format
+                    elif "instruction" in item and "output" in item:
+                        data.append(item)
+                except Exception as e:
+                    logger.warning(f"Skipping invalid line: {e}")
+                    continue
     
     logger.info(f"Loaded {len(data)} examples from {data_path}")
     return Dataset.from_list(data)
@@ -196,7 +212,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         device_map="cpu",  # CPU-only training
-        torch_dtype=torch.float32,  # float32 on CPU (float16/bfloat16 less helpful)
+        dtype=torch.float32,  # float32 on CPU (float16/bfloat16 less helpful)
         cache_dir=model_args.cache_dir,
     )
     
@@ -210,6 +226,9 @@ def main():
     # Ensure tokenizer has pad token
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    
+    # Update model config to match tokenizer
+    model.config.pad_token_id = tokenizer.pad_token_id
     
     logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     
@@ -239,13 +258,19 @@ def main():
     
     # Tokenize
     def tokenize_function(examples):
-        return tokenizer(
+        outputs = tokenizer(
             examples["text"],
             padding="max_length",
             max_length=data_args.max_seq_length,
             truncation=True,
             return_tensors=None,
         )
+        # For Causal LM, labels are usually the same as input_ids
+        # We must replace padding token id's of the labels by -100 so it's ignored by the loss
+        outputs["labels"] = [
+            [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in outputs["input_ids"]
+        ]
+        return outputs
     
     train_dataset = train_dataset.map(
         tokenize_function,
@@ -278,6 +303,13 @@ def main():
     
     # Apply LoRA
     model = get_peft_model(model, lora_config)
+    
+    # Enable gradient checkpointing to save memory
+    if hasattr(model, "gradient_checkpointing_enable"):
+        model.gradient_checkpointing_enable()
+        # CRITICAL FIX: Ensure inputs require gradients when using checkpointing
+        model.enable_input_require_grads()
+        
     model.print_trainable_parameters()
     
     # ─────────────────────────────────────────────────────────────────────
@@ -286,7 +318,7 @@ def main():
     logger.info("Setting up trainer...")
     
     # Override critical settings for CPU
-    training_args.num_train_epochs = 3
+    # training_args.num_train_epochs = 3 # Use argument value
     training_args.per_device_train_batch_size = 1  # CPU constraint
     training_args.gradient_accumulation_steps = 4  # Simulate batch size 4
     training_args.learning_rate = 2e-4
@@ -298,6 +330,7 @@ def main():
     training_args.fp16 = False  # No FP16 on CPU
     training_args.bf16 = False
     training_args.optim = "adamw_torch"  # CPU-compatible optimizer
+    training_args.use_cpu = True # Explicitly tell Trainer to use CPU
     
     # Data collator for causal LM
     data_collator = DataCollatorForSeq2Seq(
@@ -316,9 +349,36 @@ def main():
         tokenizer=tokenizer,
     )
     
+    # Disable cache to save memory during training
+    model.config.use_cache = False
+    
     # ─────────────────────────────────────────────────────────────────────
     # Step 5: Train!
     # ─────────────────────────────────────────────────────────────────────
+    
+    # Calculate training stats for user feedback
+    num_update_steps_per_epoch = len(train_dataset) // (training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps)
+    total_steps = int(num_update_steps_per_epoch * training_args.num_train_epochs)
+    
+    # Heuristic for CPU: ~60s per step (varies by hardware)
+    estimated_seconds = total_steps * 60 
+    estimated_hours = estimated_seconds / 3600
+    
+    print("\n" + "="*60)
+    print("TRAINING ESTIMATION")
+    print("="*60)
+    print(f"Examples: {len(train_dataset)}")
+    print(f"Epochs: {training_args.num_train_epochs}")
+    print(f"Batch Size (Effective): {training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps}")
+    print(f"Total Optimization Steps: {total_steps}")
+    print(f"Estimated Time (CPU): ~{estimated_hours:.1f} hours (@ 60s/step)")
+    
+    if estimated_hours > 4:
+        print("\n⚠️  WARNING: Training will take a long time on CPU.")
+        print("   Consider reducing dataset size or epochs for testing.")
+        print("   You can use --max_steps 10 to run a quick test.")
+    print("="*60 + "\n")
+
     logger.info("Starting training...")
     trainer.train()
     
@@ -326,6 +386,10 @@ def main():
     # Step 6: Save Model
     # ─────────────────────────────────────────────────────────────────────
     logger.info(f"Saving model to {training_args.output_dir}")
+    
+    # Re-enable cache for inference
+    model.config.use_cache = True
+    
     model.save_pretrained(training_args.output_dir)
     tokenizer.save_pretrained(training_args.output_dir)
     

@@ -5,14 +5,15 @@
 # with diagram_llm2's generation pipeline.
 # ============================================================================
 
-import torch
 import logging
+import re
 from pathlib import Path
 from typing import Optional, Dict
 from dataclasses import dataclass
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
+# Heavy libraries (torch, transformers, peft) are imported lazily inside the class
+# to prevent slow startup when just importing the module.
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class DiagramGenerator:
     def __init__(
         self,
         base_model: str = "Qwen/Qwen2.5-1.5B-Instruct",
-        lora_adapter_path: str = None,
+        lora_adapter_path: Optional[str] = None,
         device: str = "cpu",
     ):
         """
@@ -50,6 +51,11 @@ class DiagramGenerator:
             lora_adapter_path: Path to LoRA adapter weights
             device: 'cpu' or 'cuda'
         """
+        # Lazy import of heavy libraries
+        import torch
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        from peft import PeftModel
+
         self.device = device
         self.base_model = base_model
         self.lora_adapter_path = lora_adapter_path
@@ -59,7 +65,7 @@ class DiagramGenerator:
         self.model = AutoModelForCausalLM.from_pretrained(
             base_model,
             device_map=device,
-            torch_dtype=torch.float32,  # CPU: use float32
+            dtype=torch.float32,  # CPU: use float32
         )
         
         # Load LoRA adapter if provided
@@ -77,7 +83,8 @@ class DiagramGenerator:
     def generate_diagram(
         self,
         instruction: str,
-        config: MermaidGenerationConfig = None,
+        config: Optional[MermaidGenerationConfig] = None,
+        stream_output: bool = False,
     ) -> Dict[str, str]:
         """
         Generate a Mermaid diagram from a natural language instruction.
@@ -85,6 +92,7 @@ class DiagramGenerator:
         Args:
             instruction: Natural language description of desired diagram
             config: Generation configuration parameters
+            stream_output: If True, stream generated text to stdout
             
         Returns:
             Dict with keys:
@@ -92,6 +100,9 @@ class DiagramGenerator:
                 - 'prompt': Full prompt sent to model
                 - 'raw_output': Raw model output (with prompt)
         """
+        import torch  # Lazy import
+        from transformers import TextStreamer
+
         if config is None:
             config = MermaidGenerationConfig()
         
@@ -115,6 +126,11 @@ class DiagramGenerator:
         
         input_length = inputs["input_ids"].shape[1]
         
+        # Setup streamer if requested
+        streamer = None
+        if stream_output:
+            streamer = TextStreamer(self.tokenizer, skip_prompt=True)
+
         # Generate
         with torch.no_grad():
             outputs = self.model.generate(
@@ -128,6 +144,7 @@ class DiagramGenerator:
                 do_sample=config.do_sample,
                 repetition_penalty=config.repetition_penalty,
                 pad_token_id=self.tokenizer.eos_token_id,
+                streamer=streamer,
             )
         
         # Decode output
@@ -137,7 +154,10 @@ class DiagramGenerator:
         )
         
         # Extract only the generated part (after prompt)
-        mermaid_code = raw_output[len(prompt):].strip()
+        raw_generated_text = raw_output[len(prompt):].strip()
+        
+        # Extract clean Mermaid code
+        mermaid_code = self._extract_mermaid_code(raw_generated_text)
         
         return {
             "mermaid": mermaid_code,
@@ -145,10 +165,28 @@ class DiagramGenerator:
             "raw_output": raw_output,
         }
     
+    def _extract_mermaid_code(self, text: str) -> str:
+        """Extract Mermaid code from text, handling markdown blocks."""
+        # Pattern 1: Markdown code block with mermaid identifier
+        pattern_mermaid = r"```mermaid\s*(.*?)\s*```"
+        match = re.search(pattern_mermaid, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+            
+        # Pattern 2: Generic markdown code block
+        pattern_generic = r"```\s*(.*?)\s*```"
+        match = re.search(pattern_generic, text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+            
+        # Pattern 3: No code blocks, just return text
+        # But try to strip leading non-code text if possible
+        return text.strip()
+
     def generate_multiple(
         self,
         instructions: list,
-        config: MermaidGenerationConfig = None,
+        config: Optional[MermaidGenerationConfig] = None,
     ) -> list:
         """Generate diagrams for multiple instructions."""
         results = []
@@ -207,7 +245,7 @@ class Diagram_LLM2_Adapter:
     Adapts the fine-tuned local model to diagram_llm2's interface.
     """
     
-    def __init__(self, lora_adapter_path: str = None):
+    def __init__(self, lora_adapter_path: Optional[str] = None):
         """Initialize the diagram generator."""
         self.generator = DiagramGenerator(
             base_model="Qwen/Qwen2.5-1.5B-Instruct",
@@ -246,40 +284,81 @@ class Diagram_LLM2_Adapter:
 
 if __name__ == "__main__":
     import argparse
+    import json
     
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--lora-path",
         type=str,
-        default="./lora_mermaid",
+        default=None,
         help="Path to LoRA adapter checkpoint"
     )
     parser.add_argument(
         "--instruction",
         type=str,
-        default="Create a flowchart for a simple login process",
-        help="Diagram generation instruction"
+        default=None,
+        help="Single instruction to test"
+    )
+    parser.add_argument(
+        "--validation-file",
+        type=str,
+        default="../gemini_fine_tune/dataset/validation_data.jsonl",
+        help="Path to validation file"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=1,
+        help="Number of examples to process"
     )
     args = parser.parse_args()
     
     # Initialize generator
     logger.info("Initializing generator...")
-    generator = DiagramGenerator(lora_adapter_path=args.lora_path)
+    # Use Qwen2.5-1.5B-Instruct as base
+    generator = DiagramGenerator(
+        base_model="Qwen/Qwen2.5-1.5B-Instruct",
+        lora_adapter_path=args.lora_path
+    )
     
-    # Generate diagram
-    logger.info(f"Generating diagram for: {args.instruction}")
-    result = generator.generate_diagram(args.instruction)
-    
-    # Print results
-    print("\n" + "="*60)
-    print("GENERATED DIAGRAM:")
-    print("="*60)
-    print(result["mermaid"])
-    
-    # Validate
-    is_valid, error = generator.validate_mermaid(result["mermaid"])
-    print("\n" + "="*60)
-    print(f"VALIDATION: {'✓ PASS' if is_valid else '✗ FAIL'}")
-    if error:
-        print(f"Error: {error}")
-    print("="*60)
+    instructions = []
+    if args.instruction:
+        instructions = [args.instruction]
+    else:
+        # Load from validation file
+        if Path(args.validation_file).exists():
+            logger.info(f"Loading examples from {args.validation_file}")
+            with open(args.validation_file, 'r', encoding='utf-8') as f:
+                count = 0
+                for line in f:
+                    if count >= args.limit: break
+                    if line.strip():
+                        try:
+                            item = json.loads(line)
+                            if "contents" in item:
+                                instructions.append(item["contents"][0]["parts"][0]["text"])
+                                count += 1
+                        except Exception:
+                            continue
+        else:
+            logger.warning(f"Validation file {args.validation_file} not found. Using default.")
+            instructions = ["Create a flowchart for a simple login process"]
+
+    for instr in instructions:
+        logger.info(f"Generating diagram for: {instr[:50]}...")
+        result = generator.generate_diagram(instr)
+        
+        print("\n" + "="*60)
+        print(f"INSTRUCTION: {instr}")
+        print("-" * 60)
+        print("GENERATED DIAGRAM:")
+        print("-" * 60)
+        print(result["mermaid"])
+        
+        # Validate
+        is_valid, error = generator.validate_mermaid(result["mermaid"])
+        print("\n" + "="*60)
+        print(f"VALIDATION: {'✓ PASS' if is_valid else '✗ FAIL'}")
+        if error:
+            print(f"Error: {error}")
+        print("="*60)
