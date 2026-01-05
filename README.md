@@ -5,6 +5,38 @@
 Fork from yashrathi-git/diagram-llm with updates by blue101010
 Initailly based on A research project on generation of diagrams via LLMs.
 
+## Prerequisites
+
+1.  **Google Cloud SDK**: You need to have the Google Cloud SDK installed to interact with Vertex AI.
+    *   **Windows (PowerShell)**: Run `.\install_gcloud.ps1` to install.
+    *   **Windows (Bash/Git Bash)**: If `gcloud` is not found after installation, run `source ./fix_gcloud_bash.sh` to fix your PATH.
+    *   **Mac/Linux**: Follow instructions at [Google Cloud SDK](https://cloud.google.com/sdk/docs/install).
+
+2.  **Google Cloud Project**:
+    *   Create a new project or use an existing one in the [Google Cloud Console](https://console.cloud.google.com/).
+    *   Enable the **Vertex AI API** for your project.
+
+3.  **Authentication**:
+    *   Open a terminal.
+    *   Login to your Google Cloud account:
+        ```bash
+        gcloud auth application-default login
+        ```
+    *   Set your project ID (optional but recommended):
+        ```bash
+        gcloud config set project YOUR_PROJECT_ID
+        ```
+
+### Troubleshooting "gcloud command not found"
+ on Windows (Bash):
+
+1.  Run the provided fix script:
+    ```bash
+    source ./fix_gcloud_bash.sh
+    ```
+2.  Or restart VS Code completely.rce ~/.bashrc
+        ```
+
 ## Quick start
 
 * update you API KEY in .env

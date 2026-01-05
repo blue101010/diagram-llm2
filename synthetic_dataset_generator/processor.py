@@ -9,7 +9,7 @@ from synthetic_dataset_generator.utils import append_to_output_file
 from synthetic_dataset_generator.generators import generate_mermaid_diagram, generate_questions
 
 async def process_question_batch(
-    questions: List[str], diagram_type: str, doc_content: str
+    questions: List[str], diagram_type: str, doc_content: str, model_id: str
 ) -> List[Dict[str, str]]:
     """Process a batch of questions in parallel using ThreadPoolExecutor."""
     results = []
@@ -17,7 +17,7 @@ async def process_question_batch(
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Create partial function with fixed arguments
         generate_diagram_for_question = partial(
-            generate_mermaid_diagram, diagram_type=diagram_type, doc_content=doc_content
+            generate_mermaid_diagram, diagram_type=diagram_type, doc_content=doc_content, model_id=model_id
         )
 
         # Create a list of futures
@@ -48,7 +48,7 @@ async def process_question_batch(
     return results
 
 
-async def process_documentation_file(md_file: str, md_directory: str) -> List[Dict[str, str]]:
+async def process_documentation_file(md_file: str, md_directory: str, model_id: str) -> List[Dict[str, str]]:
     """Process a single documentation file to generate questions and diagrams."""
     diagram_type = os.path.splitext(md_file)[0]
     md_path = os.path.join(md_directory, md_file)
@@ -79,8 +79,8 @@ async def process_documentation_file(md_file: str, md_directory: str) -> List[Di
         logger.error(f"[process_documentation_file] Error reading file '{md_path}': {e}", exc_info=True)
         return []
 
-    # Step 1: Generate questions using Gemini 2.5 Pro
-    questions = generate_questions(diagram_type, doc_content)
+    # Step 1: Generate questions using the selected model
+    questions = generate_questions(diagram_type, doc_content, model_id)
     if not questions:
         logger.warning(
             f"[process_documentation_file] Could not generate questions for '{diagram_type}'. Skipping."
@@ -101,7 +101,7 @@ async def process_documentation_file(md_file: str, md_directory: str) -> List[Di
             f"[process_documentation_file] Processing batch {i//batch_size + 1}/{(len(questions) + batch_size - 1)//batch_size}"
         )
 
-        batch_results = await process_question_batch(batch, diagram_type, doc_content)
+        batch_results = await process_question_batch(batch, diagram_type, doc_content, model_id)
         all_results.extend(batch_results)
 
         # Add a small delay between batches to avoid rate limiting

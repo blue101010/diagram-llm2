@@ -1,11 +1,28 @@
 import os
 import json
 import asyncio
-from synthetic_dataset_generator.config import logger, OUTPUT_FILE, MD_DIRECTORY
+from synthetic_dataset_generator import config
+from synthetic_dataset_generator.config import logger, OUTPUT_FILE, MD_DIRECTORY, DEFAULT_MODEL
 from synthetic_dataset_generator.processor import process_documentation_file
+from synthetic_dataset_generator.utils import select_model, load_model_limits
 
 async def main() -> None:
     """Main function to process all documentation files."""
+    # Interactive Model Selection
+    model_id = select_model(DEFAULT_MODEL)
+    
+    # Update Rate Limit based on selection
+    limits = load_model_limits()
+    if model_id in limits:
+        rpm = limits[model_id].get("rpm", 0)
+        if rpm > 0:
+            # Calculate delay: 60 / (RPM - 1) to be safe
+            target_rpm = max(1, rpm - 1)
+            new_delay = 60.0 / target_rpm
+            config.RATE_LIMIT_DELAY = new_delay
+            logger.info(f"[main] Selected model: {model_id}")
+            logger.info(f"[main] Updated RATE_LIMIT_DELAY to {new_delay:.2f}s (Target RPM: {target_rpm})")
+    
     dataset = []
 
     # Initialize the output file if it doesn't exist
@@ -38,7 +55,7 @@ async def main() -> None:
     )
 
     for md_file in md_files:
-        results = await process_documentation_file(md_file, MD_DIRECTORY)
+        results = await process_documentation_file(md_file, MD_DIRECTORY, model_id)
         dataset.extend(results)
 
     logger.info("\n[main] Generation complete.")

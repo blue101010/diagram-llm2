@@ -21,16 +21,21 @@ logger = logging.getLogger(__name__)
 # ------------------ CONFIGURATION & CONSTANTS ------------------
 
 # Model identifiers
-GEMINI_2_5_PRO = "gemini-2.5-pro-preview-03-25"
+DEFAULT_MODEL = "gemma-3-27b-it"
+
+# Base Directory Handling
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MD_DIRECTORY = os.path.join(BASE_DIR, "md")
 
 # API Rate Limiting
-MAX_WORKERS = 3  
-MAX_RETRIES = 5
+MAX_WORKERS = 1  
+MAX_RETRIES = 10
 INITIAL_BACKOFF = 2.0  # Seconds
+RATE_LIMIT_DELAY = 4.0 # Seconds between requests (Approx 15 RPM)
+MODELS_LIMITS_FILE = os.path.join(os.path.dirname(BASE_DIR), "gemini_fine_tune", "models_limits_free.json")
 
 # File to save all generated questions and diagrams
 OUTPUT_FILE = "generated_questions.json"
-MD_DIRECTORY = "md"
 
 # Multi-line string constants for prompts
 QUESTION_PROMPT = """\
