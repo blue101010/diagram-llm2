@@ -35,7 +35,7 @@ RATE_LIMIT_DELAY = 4.0 # Seconds between requests (Approx 15 RPM)
 MODELS_LIMITS_FILE = os.path.join(os.path.dirname(BASE_DIR), "gemini_fine_tune", "models_limits_free.json")
 
 # File to save all generated questions and diagrams
-OUTPUT_FILE = "generated_questions.json"
+OUTPUT_FILE = "synthetic_dataset_generator_generated_questions.json"
 
 # Multi-line string constants for prompts
 QUESTION_PROMPT = """\
